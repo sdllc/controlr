@@ -143,7 +143,7 @@ var ControlR = function(){
         });
     };
 
-    /** execute a command.  any output will return on the console */
+    /** execute a command.  any output will print to the console */
     this.exec = function( cmds ){
         return exec_packet({
            command: 'exec', commands: cmds 
@@ -206,9 +206,11 @@ var ControlR = function(){
                 });
 
                 pause( 100 ).then( function(){
-                    return write_packet( socket, {
+                    return exec_packet({
                         command: 'rinit',
                         rhome: opts.rhrome || "" });
+                }).then( function(){
+                   if( opts.debug ) console.info( "init complete" ); 
                 }).catch( function(e){
                     console.info( "Exception in init", e );
                 });
