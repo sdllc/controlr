@@ -1,0 +1,11 @@
+{
+  "name": "controlr",
+  "version": "0.2.1",
+  "main": "js/controlr.js",
+  "dependencies": {
+    "bluebird": "^3.2.2"
+  },
+  "scripts": {
+
+  }
+}
