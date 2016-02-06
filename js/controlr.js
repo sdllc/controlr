@@ -13,13 +13,13 @@ var start_child_process = function( opts, socket_path ){
     
     // windows
     // ...
-        
+
     // linux
     var env = {
         R_HOME: opts.rhome,
         LD_LIBRARY_PATH: path.join( opts.rhome, 'lib')
     };
-    var file = opts.file || path.join( __dirname, "..", "build", "Release", "controlr" );
+    var file = opts.file || path.join( opts.basedir ? opts.basedir : __dirname, "..", "build", "Release", "controlr" );
     
     if( opts.debug ){
         console.info( `file: ${file}` );
@@ -182,46 +182,49 @@ var ControlR = function(){
      * initializing.
      */
     this.init = function(){
-        
-        if( server ) throw( "already initialized" );
-        
+
         opts = arguments[0] || {};
-        socket_file = path.join( os.tmpdir(), "r." + Math.round( 1e8 * Math.random()));
-        server = net.createServer().listen( socket_file, function(){
+        
+        return new Promise( function( resolve, reject ){
             
-            // set up to catch the child connection
-            server.on( "connection", function(){
-                if( opts.debug ) console.info( "connection" );
-                if( socket ) throw( "too many clients" );
-                
-                socket = arguments[0];
-                socket.setEncoding('utf8');
-                socket.on( "readable", on_read.bind( this, socket, buffer, read_callback ));
-                socket.on( "close", function(){
-                    if( opts.debug ) console.info( "socket close", arguments );
-                    socket = null;
-                });
-                socket.on( "error", function(){
-                    if( opts.debug ) console.info( "socket error", arguments );
+            if( server ) reject( "already initialized" );
+            socket_file = path.join( os.tmpdir(), "r." + Math.round( 1e8 * Math.random()));
+            server = net.createServer().listen( socket_file, function(){
+            
+                // set up to catch the child connection
+                server.on( "connection", function(){
+                    if( opts.debug ) console.info( "connection" );
+                    if( socket ) reject( "too many clients" );
+                    
+                    socket = arguments[0];
+                    socket.setEncoding('utf8');
+                    socket.on( "readable", on_read.bind( this, socket, buffer, read_callback ));
+                    socket.on( "close", function(){
+                        if( opts.debug ) console.info( "socket close", arguments );
+                        socket = null;
+                    });
+                    socket.on( "error", function(){
+                        if( opts.debug ) console.info( "socket error", arguments );
+                    });
+
+                    pause( 100 ).then( function(){
+                        return exec_packet({
+                            command: 'rinit',
+                            rhome: opts.rhrome || "" });
+                    }).then( function(){
+                        if( opts.debug ) console.info( "init complete" ); 
+                        resolve(instance);
+                    }).catch( function(e){
+                        console.info( "Exception in init", e );
+                        reject(e);
+                    });
+                    
                 });
 
-                pause( 100 ).then( function(){
-                    return exec_packet({
-                        command: 'rinit',
-                        rhome: opts.rhrome || "" });
-                }).then( function(){
-                   if( opts.debug ) console.info( "init complete" ); 
-                }).catch( function(e){
-                    console.info( "Exception in init", e );
-                });
-                
+                // then create the child
+                start_child_process( opts, socket_file );
             });
-            
-            // then create the child
-            start_child_process( opts, socket_file );
         });
-        
-        return this; // fluent
     };
     
     // notwithstanding the above comment, you can init right away if you want
