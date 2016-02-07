@@ -10,16 +10,25 @@ const events = require( "events" );
 const child_process = require( "child_process" );
 
 var start_child_process = function( opts, socket_path ){
-    
-    // windows
-    // ...
-
-    // linux
-    var env = {
-        R_HOME: opts.rhome,
-        LD_LIBRARY_PATH: path.join( opts.rhome, 'lib')
-    };
-    var file = opts.file || path.join( opts.basedir ? opts.basedir : __dirname, "..", "build", "Release", "controlr" );
+	
+	var env, file;
+		
+	if( process.platform.match( /win/ )){
+		env = {
+			R_HOME: opts.rhome,
+			PATH: path.join( opts.rhome, 'bin', 'x64')
+				+ ";" + path.join( opts.basedir ? opts.basedir : __dirname, "..", "build", "Release" )
+				+ ";" + process.env.PATH
+		};
+	 	file = opts.file || path.join( opts.basedir ? opts.basedir : __dirname, "..", "build", "Release", "controlr.exe" );
+	}
+	else {
+		env = {
+			R_HOME: opts.rhome,
+			LD_LIBRARY_PATH: path.join( opts.rhome, 'lib')
+		};
+	 	file = opts.file || path.join( opts.basedir ? opts.basedir : __dirname, "..", "build", "Release", "controlr" );
+	}
     
     if( opts.debug ){
         console.info( `file: ${file}` );
@@ -190,7 +199,14 @@ var ControlR = function(){
         return new Promise( function( resolve, reject ){
             
             if( server ) reject( "already initialized" );
-            socket_file = path.join( os.tmpdir(), "r." + Math.round( 1e8 * Math.random()));
+				
+				if( process.platform.match( /win/ )){
+	            socket_file = "\\\\.\\pipe\\r." + Math.round( 1e8 * Math.random());
+				}
+				else {
+	            socket_file = path.join( os.tmpdir(), "r." + Math.round( 1e8 * Math.random()));
+				}
+				
             server = net.createServer().listen( socket_file, function(){
             
                 // set up to catch the child connection
@@ -210,9 +226,10 @@ var ControlR = function(){
                     });
 
                     pause( 100 ).then( function(){
+							   if( opts.debug ) console.info( "calling init" );
                         return exec_packet({
                             command: 'rinit',
-                            rhome: opts.rhrome || "" });
+                            rhome: opts.rhome || "" });
                     }).then( function(){
                         if( opts.debug ) console.info( "init complete" ); 
                         resolve(instance);

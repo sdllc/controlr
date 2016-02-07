@@ -16,6 +16,7 @@ uv_mutex_t async_mutex;
 #define TIMER_TICK 100
 
 bool closing_sequence = false;
+bool initialized = false;
 
 std::string arg0;
 
@@ -137,7 +138,7 @@ void async_callback( uv_async_t *handle ){
  */
 void timer_callback(uv_timer_t *handle){
 	uv_timer_stop( &timer );
-	r_tick();
+	if( initialized ) r_tick();
 	uv_timer_start(&timer, timer_callback, TIMER_TICK, TIMER_TICK);
 }
 
@@ -192,17 +193,18 @@ void processCommand( json &j ){
 		
 		std::string rhome;
 		std::string ruser;
-		
+
 		if (j.find("rhome") != j.end()) rhome = j["rhome"].get<std::string>();
 		if (j.find("ruser") != j.end()) ruser = j["ruser"].get<std::string>();
 		
-        char *proc = new char[ arg0.length() + 1 ];
-        char nosave[] = "--no-save";
-        strcpy( proc, arg0.c_str());
-        char* argv[] = { proc, nosave };
+		char *proc = new char[ arg0.length() + 1 ];
+		char nosave[] = "--no-save";
+		strcpy( proc, arg0.c_str());
+		char* argv[] = { proc, nosave };
 		r_init( rhome.c_str(), ruser.c_str(), 2, argv );
-        delete[] proc;
-		
+		delete[] proc;
+		initialized = true;
+	
 	}
 	else if( !cmd.compare( "exec" ) || !cmd.compare( "internal" )){
 		
@@ -232,6 +234,7 @@ void processCommand( json &j ){
 	else if( !cmd.compare( "rshutdown" )){
 		
 		closing_sequence = true;
+		initialized = false;
 		uv_close( (uv_handle_t*)&async, NULL );
 		r_shutdown();
 
@@ -270,6 +273,7 @@ void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
 }
 
 void connect_cb(uv_connect_t* req, int status){
+	
 	if( !status ){
 		if( uv_is_readable( (uv_stream_t*)&pipe )){
 			uv_read_start((uv_stream_t*) &pipe, alloc_buffer, read_cb);

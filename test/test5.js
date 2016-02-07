@@ -1,4 +1,4 @@
-const ControlR = require( "./js/controlr.js")
+const ControlR = require( "../js/controlr.js")
 const repl = require('repl');
 
 var controlr = new ControlR();
@@ -7,7 +7,8 @@ controlr.on('console', function(msg){
 })
 
 controlr.init({
-    rhome: "/home/duncan/dev/R-3.2.3",
+//    rhome: "/home/duncan/dev/R-3.2.3",
+    rhome: "/e/projectx/R-3.2.3",
     debug: true
 });
 

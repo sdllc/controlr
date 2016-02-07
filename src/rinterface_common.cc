@@ -3,24 +3,26 @@
 #include <stdio.h>
 #include <signal.h>
 
-#include <unistd.h>
-
 #include <string>
 #include <vector>
 #include <iostream>
 
 #include "controlr_rinterface.h"
 
-// #define USE_RINTERNALS
-#define R_INTERFACE_PTRS
-
-#include <Rversion.h>
 #include <Rinternals.h>
 #include <Rembedded.h>
-#include <Rinterface.h>
-// #include <graphapp.h>
 
-#include <R_ext/RStartup.h>
+#ifdef WIN32
+
+	#include <graphapp.h>
+
+#else // #ifdef WIN32
+
+	#include <unistd.h>
+	#include <Rinterface.h>
+
+#endif // #ifdef WIN32
+
 #include <R_ext/Parse.h>
 #include <R_ext/Rdynload.h>
 
