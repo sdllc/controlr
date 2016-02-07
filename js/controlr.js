@@ -85,6 +85,7 @@ var on_read = function( socket, buffer, callback ){
 					console.info(`parse exception: ${e}`, x);
 					buffer = x;
 				}
+                
 				if( json ) callback(json);
             }
         }
@@ -184,6 +185,7 @@ var ControlR = function(){
     this.init = function(){
 
         opts = arguments[0] || {};
+        console.info( "OPTS", opts );
         
         return new Promise( function( resolve, reject ){
             

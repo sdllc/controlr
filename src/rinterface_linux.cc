@@ -1,8 +1,8 @@
 
 #include <stdio.h>
 #include <signal.h>
-
 #include <unistd.h>
+#include <string.h>
 
 #include <string>
 #include <vector>
@@ -17,7 +17,6 @@
 #include <Rinternals.h>
 #include <Rembedded.h>
 #include <Rinterface.h>
-// #include <graphapp.h>
 
 #include <R_ext/RStartup.h>
 #include <R_ext/Parse.h>
@@ -26,6 +25,8 @@
 //bool g_buffering = false;
 //std::vector< std::string > logBuffer;
 //std::vector< std::string > cmdBuffer;
+
+#undef length
 
 // -------------------------------------------------------------
 
@@ -44,8 +45,21 @@ void r_tick()
 
 // extern void (*ptr_R_WriteConsole)(const char *, int);
 void R_WriteConsole( const char* message, int len ){
-    //std::cout << "R| " << message;
-    log_message( message, len );
+    
+    // in an effort to reduce messages, and smooth flow,
+    // we are buffering until there's a newline.
+    
+    // FIXME: use stringstream?
+    
+    static std::string buffer;
+    buffer += message;
+    if( len <= 0 ) len = strlen( message );
+    if( len > 0 && message[len-1] == '\n' ){
+       log_message( buffer.c_str(), buffer.length()); 
+       buffer.clear();
+    }
+    
+    // log_message( message, len );
 }
 
 int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
@@ -60,10 +74,11 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
     R_Outputfile = NULL;
     R_Consolefile = NULL;
 
-    setup_Rmainloop();
-    R_ReplDLLinit();
+    //setup_Rmainloop();
+    //R_ReplDLLinit();
 
-  
+	setup_Rmainloop();
+	R_ReplDLLinit();
 
     printf( "r_init exit\n" );
     

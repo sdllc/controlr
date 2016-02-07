@@ -21,7 +21,8 @@
             ],
 			"include_dirs" : [
 				"./include/",
-				'<!@(printf "%s/include" "$R_HOME")'
+				'<!@(printf "%s/include" "$R_HOME")',
+				'<!@(printf "%s/src/extra/graphapp" "$R_HOME")'
 			],
             "cflags!" : [ "-fno-exceptions" ],
             "cflags" : [ "-fexceptions" ],
