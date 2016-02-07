@@ -283,6 +283,8 @@ void connect_cb(uv_connect_t* req, int status){
 
 int main( int argc, char **argv ){
 
+	// TODO: support tcp sockets as well 
+	
 	if( argc <= 1 )
 	{
 		cout << "controlr" << endl;
