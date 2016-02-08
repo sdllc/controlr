@@ -26,6 +26,10 @@
 //std::vector< std::string > logBuffer;
 //std::vector< std::string > cmdBuffer;
 
+extern void direct_callback_json( const char *channel, const char *json );
+extern void direct_callback_sexp( const char *channel, SEXP sexp );
+
+
 #undef length
 
 // -------------------------------------------------------------
