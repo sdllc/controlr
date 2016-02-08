@@ -147,8 +147,10 @@ var ControlR = function(){
             else if( packet.type === "console" ){
                 instance.emit( 'console', packet.message );
             }
-				else if( packet.type === "graphics" ){
-                instance.emit( 'graphics', packet.data );
+				else if( packet.type === "graphics" 
+					|| packet.type === "browser"  
+					|| packet.type === "pager" ){
+                instance.emit( packet.type, packet.data );
 				}
 				else console.info( "unexpected packet type", packet );
         }
