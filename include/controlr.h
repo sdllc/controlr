@@ -3,6 +3,7 @@
 #define  __CONTROLR_H
 
 #include <iostream>
+#include <sstream>
 #include <string.h>
 #include <uv.h>
 
@@ -14,6 +15,7 @@
 
 #include "controlr_common.h"
 #include "controlr_rinterface.h"
+
 
 #endif // #ifndef __CONTROLR_H
 

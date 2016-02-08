@@ -62,6 +62,18 @@ __inline void writeJSON( json &j, uv_stream_t* client, uv_write_cb cb, std::vect
 	
 }
 
+/** callback from R */
+void direct_callback( const char *channel, const char *data, int len ){
+	
+	// FIXME: don't do this twice
+	
+	json j = json::parse(data);
+	json response = {{"type", channel}, {"data", j}};
+	if( uv_is_writable( (uv_stream_t*)&pipe ))
+		writeJSON( response, (uv_stream_t*)&pipe, write_callback);
+		
+}
+
 /**
  * this function is called by R when R code calls into the
  * exe via .Call.  we need to get onto the appropriate thread
@@ -98,7 +110,9 @@ void write_callback(uv_write_t *req, int status) {
 	if (status < 0) {
 		fprintf(stderr, "Write error %s\n", uv_err_name(status));
 	}
-	if( req->data ) free( req->data );
+	if( req->data ) {
+		free( req->data );
+	} 
 	free(req);
 	
 	if( closing_sequence ){

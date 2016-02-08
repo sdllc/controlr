@@ -58,6 +58,31 @@ var start_child_process = function( opts, socket_path ){
     
 };
 
+
+/**
+ * not using this function atm but keep it handy.  returns
+ * (via promise) the first available port starting at [port]
+ * up to [port+count] or false on no open ports found.
+ */
+var check_port = function( port, count ) {
+	return new Promise( function( resolve, reject ){
+		var testserver = net.createServer()
+				.once('error', function (err) {
+					if( count > 0 ){
+						check_port( port + 1, count - 1 ).then( function(x){
+								resolve(x);
+						});
+					}
+					else resolve(false);
+				})
+				.once('listening', function() {
+					testserver.once('close', function() { resolve(port); })
+					.close()
+				})
+				.listen(port);
+	});
+};
+	 
 var pause = function( delay, func ){
     return new Promise( function( resolve, reject ){
         setTimeout( function(){
@@ -79,7 +104,7 @@ var on_read = function( socket, buffer, callback ){
     
     var str = socket.read();
     if( !str ) return;
-    
+	 
     var elts = str.split( "\n" );
     elts.map( function(x){
         if( buffer.length ) x = buffer + x;
@@ -122,7 +147,12 @@ var ControlR = function(){
             else if( packet.type === "console" ){
                 instance.emit( 'console', packet.message );
             }
+				else if( packet.type === "graphics" ){
+                instance.emit( 'graphics', packet.data );
+				}
+				else console.info( "unexpected packet type", packet );
         }
+		  else console.info( "Packet missing type", packet );
     };
 
     var close = function(){

@@ -232,6 +232,7 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	GA_initapp(0, 0);
 	setup_Rmainloop();
 	R_ReplDLLinit();
+	R_RegisterCCallable("ControlR", "Callback", (DL_FUNC)direct_callback);
 
 	/*
 	::WaitForSingleObject(muxExecR, INFINITE );
@@ -241,13 +242,7 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	
 	// load up
 
-	{
-		int err;
-		char szmodule[MAX_PATH];
-		GetModuleFileName( 0, szmodule, MAX_PATH );
-		printf( "module: %s\n", szmodule);
-		R_tryEval(Rf_lang2(Rf_install("dyn.load"), Rf_mkString(szmodule)), R_GlobalEnv, &err);
-	}
+	
 	
 	return 0;
 
