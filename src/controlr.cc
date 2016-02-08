@@ -63,7 +63,7 @@ __inline void writeJSON( json &j, uv_stream_t* client, uv_write_cb cb, std::vect
 }
 
 /** callback from R */
-void direct_callback( const char *channel, const char *data, int len ){
+void direct_callback( const char *channel, const char *data ){
 	
 	// FIXME: don't do this twice
 	

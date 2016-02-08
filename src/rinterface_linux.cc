@@ -79,7 +79,8 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 
 	setup_Rmainloop();
 	R_ReplDLLinit();
-	R_RegisterCCallable("ControlR", "Callback", (DL_FUNC)direct_callback);
+	R_RegisterCCallable("ControlR", "CallbackJSON", (DL_FUNC)direct_callback_json);
+	R_RegisterCCallable("ControlR", "CallbackSEXP", (DL_FUNC)direct_callback_sexp);
 
     printf( "r_init exit\n" );
     

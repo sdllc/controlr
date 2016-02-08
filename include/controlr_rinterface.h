@@ -21,7 +21,6 @@ void r_tick();
 nlohmann::json& exec_to_json( nlohmann::json &result, 
 	std::vector< std::string > &vec, int *err = 0, PARSE_STATUS_2 *ps = 0, bool withVisible = false );
 	
-
 int r_init( const char *rhome, const char *ruser, int argc, char **argv );
 
 void r_shutdown();

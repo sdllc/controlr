@@ -52,8 +52,11 @@ extern void R_ProcessEvents(void);
 
 extern void RibbonClearUserButtons();
 extern void RibbonAddUserButton(std::string &strLabel, std::string &strFunc, std::string &strImgMso);
-
 extern void log_message( const char *buf, int len = -1, bool console = false );
+
+extern void direct_callback_json( const char *channel, const char *json );
+extern void direct_callback_sexp( const char *channel, SEXP sexp );
+
 
 SEXP exec_r(std::vector< std::string > &vec, int *err = 0, ParseStatus *pStatus = 0, bool withVisible = false);
 
@@ -232,7 +235,8 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	GA_initapp(0, 0);
 	setup_Rmainloop();
 	R_ReplDLLinit();
-	R_RegisterCCallable("ControlR", "Callback", (DL_FUNC)direct_callback);
+	R_RegisterCCallable("ControlR", "CallbackJSON", (DL_FUNC)direct_callback_json);
+	R_RegisterCCallable("ControlR", "CallbackSEXP", (DL_FUNC)direct_callback_sexp);
 
 	/*
 	::WaitForSingleObject(muxExecR, INFINITE );

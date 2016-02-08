@@ -14,6 +14,6 @@ typedef enum
 }
 PARSE_STATUS_2;
 
-extern void direct_callback( const char *channel, const char *data, int len );
+extern void direct_callback( const char *channel, const char *data );
 
 #endif // #ifndef __COMMON_H

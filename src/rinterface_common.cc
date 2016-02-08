@@ -592,8 +592,6 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 	return json;
 	
 }
-	
-
 
 nlohmann::json& exec_to_json( nlohmann::json &result, 
 	std::vector< std::string > &vec, int *err, PARSE_STATUS_2 *ps2, bool withVisible ){
@@ -608,3 +606,12 @@ nlohmann::json& exec_to_json( nlohmann::json &result,
 	return result;
 }
 
+void direct_callback_json( const char *channel, const char *json ){
+	direct_callback( channel, json );
+}
+
+void direct_callback_sexp( const char *channel, SEXP sexp ){
+	nlohmann::json json;
+	SEXP2JSON( sexp, json );
+	direct_callback( channel, json.dump().c_str());
+}
