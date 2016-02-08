@@ -79,6 +79,7 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 
 	setup_Rmainloop();
 	R_ReplDLLinit();
+	R_RegisterCCallable("ControlR", "Callback", (DL_FUNC)direct_callback);
 
     printf( "r_init exit\n" );
     
