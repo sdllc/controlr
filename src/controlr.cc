@@ -66,11 +66,18 @@ __inline void writeJSON( json &j, uv_stream_t* client, uv_write_cb cb, std::vect
 void direct_callback( const char *channel, const char *data ){
 	
 	// FIXME: don't do this twice
-	
-	json j = json::parse(data);
-	json response = {{"type", channel}, {"data", j}};
-	if( uv_is_writable( (uv_stream_t*)&pipe ))
-		writeJSON( response, (uv_stream_t*)&pipe, write_callback);
+	// FIXME: proper handling (at least for debug purposes)
+
+	try {		
+		json j = json::parse(data);
+		json response = {{"type", channel}, {"data", j}};
+		if( uv_is_writable( (uv_stream_t*)&pipe ))
+			writeJSON( response, (uv_stream_t*)&pipe, write_callback);
+	}
+	catch( ... ){
+		cout << "JSON parse exception (unknown)" << endl;
+		cout << data << endl;
+	}
 		
 }
 
@@ -183,7 +190,7 @@ void processCommand( json &j ){
         response["id"] = j["id"];
 	}
  
-    cout << "COMMAND: " << cmd << endl;
+	// cout << "---\n" << j.dump() << "\n---" << endl;
 
 	// toll the timer while we're operating
 	uv_timer_stop( &timer );
