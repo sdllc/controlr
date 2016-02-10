@@ -47,8 +47,7 @@ void r_tick()
 	// ?? // R_ProcessEvents();
 }
 
-// extern void (*ptr_R_WriteConsole)(const char *, int);
-void R_WriteConsole( const char* message, int len ){
+void R_WriteConsoleEx( const char* message, int len, int status ){
     
     // in an effort to reduce messages, and smooth flow,
     // we are buffering until there's a newline.
@@ -74,7 +73,9 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 
     Rf_initialize_R(argc, (char**)argv);
 
-    ptr_R_WriteConsole = R_WriteConsole;
+    ptr_R_WriteConsole = NULL;
+    ptr_R_WriteConsoleEx = R_WriteConsoleEx;
+    
     R_Outputfile = NULL;
     R_Consolefile = NULL;
 

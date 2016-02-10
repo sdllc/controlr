@@ -11,22 +11,19 @@ const child_process = require( "child_process" );
 
 var start_child_process = function( opts, socket_path ){
 	
-	var env, file;
+	var env = {}, file;
+    for( var key in process.env ){ env[key] = process.env[key]; }
 		
 	if( process.platform.match( /win/ )){
-		env = {
-			R_HOME: opts.rhome,
-			PATH: path.join( opts.rhome, 'bin', 'x64')
+		env.R_HOME = opts.rhome;
+		env.PATH = path.join( opts.rhome, 'bin', 'x64')
 				+ ";" + path.join( opts.basedir ? opts.basedir : __dirname, "..", "build", "Release" )
-				+ ";" + process.env.PATH
-		};
+				+ ";" + process.env.PATH;
 	 	file = opts.file || path.join( opts.basedir ? opts.basedir : __dirname, "..", "build", "Release", "controlr.exe" );
 	}
 	else {
-		env = {
-			R_HOME: opts.rhome,
-			LD_LIBRARY_PATH: path.join( opts.rhome, 'lib')
-		};
+		env.R_HOME = opts.rhome;
+		env.LD_LIBRARY_PATH = path.join( opts.rhome, 'lib');
 	 	file = opts.file || path.join( opts.basedir ? opts.basedir : __dirname, "..", "build", "Release", "controlr" );
 	}
     
@@ -232,12 +229,12 @@ var ControlR = function(){
             
             if( server ) reject( "already initialized" );
 				
-				if( process.platform.match( /win/ )){
+            if( process.platform.match( /win/ )){
 	            socket_file = "\\\\.\\pipe\\r." + Math.round( 1e8 * Math.random());
-				}
-				else {
+            }
+            else {
 	            socket_file = path.join( os.tmpdir(), "r." + Math.round( 1e8 * Math.random()));
-				}
+            }
 				
             server = net.createServer().listen( socket_file, function(){
             

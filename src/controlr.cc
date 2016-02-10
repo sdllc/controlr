@@ -313,7 +313,6 @@ int main( int argc, char **argv ){
 	}
 
     arg0 = argv[0];
-    cout << "0: " << arg0 << endl;
 
 	loop = uv_default_loop();
 	uv_pipe_init(loop, &pipe, 0 /* ipc */);

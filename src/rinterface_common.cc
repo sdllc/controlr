@@ -117,12 +117,7 @@ void r_exec_vector(std::vector<std::string> &vec, int *err, PARSE_STATUS_2 *stat
 	// here; and then potentially remove them if you get an INCOMPLETE
 	// response (b/c in that case we'll see it again)
 
-    std::cout << "exec... " << vec[0] << std::endl;
-    fflush(0);
-    
 	SEXP rslt = PROTECT(exec_r(vec, err, &ps, true));
-
-    std::cout << "ok?" << std::endl;
 
 	if (status)
 	{
