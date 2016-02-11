@@ -173,7 +173,10 @@ var ControlR = function(){
                 notify = function( response ){
                     busy = false;
                     notify = null;
-                    if( response ) resolve( response );
+                    if( response ){
+							  if( response.parsestatus === 3 ) reject(response); // parse err
+							  resolve( response );
+						  }
                     else reject();
                     instance.emit( 'state-change', busy );
                 };
