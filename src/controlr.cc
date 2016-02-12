@@ -6,7 +6,12 @@ using namespace std;
 using json = nlohmann::json;
 
 uv_loop_t *loop;
-uv_pipe_t pipe;
+
+uv_pipe_t _pipe;
+uv_tcp_t _tcp;
+
+uv_stream_t *client;
+
 uv_timer_t timer;
 uv_async_t async;
 uv_mutex_t async_mutex;
@@ -58,7 +63,7 @@ __inline void writeJSON( json &j, uv_stream_t* client, uv_write_cb cb, std::vect
 	}
 		
 	uv_buf_t wrbuf = uv_buf_init(sz, len);
-	uv_write(req, (uv_stream_t*)client, &wrbuf, 1, cb);
+	uv_write(req, client, &wrbuf, 1, cb);
 	
 }
 
@@ -71,8 +76,8 @@ void direct_callback( const char *channel, const char *data ){
 	try {		
 		json j = json::parse(data);
 		json response = {{"type", channel}, {"data", j}};
-		if( uv_is_writable( (uv_stream_t*)&pipe ))
-			writeJSON( response, (uv_stream_t*)&pipe, write_callback);
+		if( uv_is_writable( client ))
+			writeJSON( response, client, write_callback);
 	}
 	catch( ... ){
 		cout << "JSON parse exception (unknown)" << endl;
@@ -99,9 +104,9 @@ void external_callback( json &j ){
 	
 	// we are on the right thread!
 
-	if( uv_is_writable( (uv_stream_t*)&pipe )){
+	if( uv_is_writable( client )){
 		json msg = {{"type", "callback"}, {"data", j}};
-			writeJSON( msg, (uv_stream_t*)&pipe, write_callback);
+			writeJSON( msg, client, write_callback);
 	}		
 	
 }
@@ -123,7 +128,7 @@ void write_callback(uv_write_t *req, int status) {
 	free(req);
 	
 	if( closing_sequence ){
-		uv_close( (uv_handle_t*)&pipe, NULL );
+		uv_close( (uv_handle_t*)client, NULL );
 	}
 	
 }
@@ -143,13 +148,11 @@ void async_callback( uv_async_t *handle ){
 	uv_mutex_unlock(&async_mutex);
 
 	for( STRVECTOR::iterator iter = vector.begin(); iter != vector.end(); iter++ ){
-		if( uv_is_writable( (uv_stream_t*)&pipe )){
-			// there's an unnecessary parse/unparse step here
-			json data = json::parse(*iter);
-			cout << *iter << endl;
-			json j = {{"type", "callback"}, {"data", data}};
-				writeJSON( j, (uv_stream_t*)&pipe, write_callback);
-		}		
+		// there's an unnecessary parse/unparse step here
+		json data = json::parse(*iter);
+		cout << *iter << endl;
+		json j = {{"type", "callback"}, {"data", data}};
+		writeJSON( j, client, write_callback);
 	}
 }
 
@@ -169,8 +172,7 @@ void timer_callback(uv_timer_t *handle){
 void log_message( const char *buf, int len = -1, bool console = false ){
 	 
 	json j = {{"type", "console"}, {"message", buf}, {"flag", console}};
-	if( uv_is_writable( (uv_stream_t*)&pipe ))
-		writeJSON( j, (uv_stream_t*)&pipe, write_callback);
+	writeJSON( j, client, write_callback);
 
 }
 
@@ -266,8 +268,7 @@ void processCommand( json &j ){
 		response["command"] = cmd;
 	}
 
-	if( uv_is_writable( (uv_stream_t*)&pipe ))
-		writeJSON( response, (uv_stream_t*)&pipe, write_callback);
+	writeJSON( response, client, write_callback);
 
 	if( !closing_sequence )
 		uv_timer_start(&timer, timer_callback, TIMER_TICK, TIMER_TICK);
@@ -294,28 +295,33 @@ void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
 }
 
 void connect_cb(uv_connect_t* req, int status){
+
+	cout << "connect_cb, status=" << status << endl;
 	
 	if( !status ){
-		if( uv_is_readable( (uv_stream_t*)&pipe )){
-			uv_read_start((uv_stream_t*) &pipe, alloc_buffer, read_cb);
+		if( uv_is_readable( client )){
+			
+			cout << "readable, calling read start" << endl;
+			uv_read_start( client, alloc_buffer, read_cb );
 		}
+		else cout <<"client not readable!" << endl;
 	}
 }
 
 int main( int argc, char **argv ){
 
 	// TODO: support tcp sockets as well 
-	
+
 	if( argc <= 1 )
 	{
 		cout << "controlr" << endl;
 		return 0;
 	}
 
-    arg0 = argv[0];
+	arg0 = argv[0];
 
 	loop = uv_default_loop();
-	uv_pipe_init(loop, &pipe, 0 /* ipc */);
+	
 	uv_connect_t req;
 
 	uv_mutex_init( &async_mutex );
@@ -323,11 +329,25 @@ int main( int argc, char **argv ){
 	uv_timer_start( &timer, timer_callback, INITIAL_TIMER_TICK, TIMER_TICK );
 	uv_async_init( loop, &async, async_callback );
 
-	if( argc > 1 ) uv_pipe_connect(&req, &pipe, argv[1], connect_cb);
+	if( argc > 2 ){
+		cout << "connecting tcp: " << argv[1] << ":" << atoi(argv[2]) << endl;
+		uv_tcp_init(loop, &_tcp);
+		client = (uv_stream_t*)&_tcp;
+		struct sockaddr_in dest;
+		uv_ip4_addr( argv[1], atoi( argv[2] ), &dest);
+		uv_tcp_connect( &req, &_tcp, (const struct sockaddr*)&dest, connect_cb);
+	}
+	else {
+		cout << "connecting pipe" << endl;
+		client = (uv_stream_t*)&_pipe;
+		uv_pipe_init(loop, &_pipe, 0 /* ipc */);
+		uv_pipe_connect( &req, &_pipe, argv[1], connect_cb);
+	}	
+
 	return uv_run(loop, UV_RUN_DEFAULT);
-
+	
+	// clean up
 	uv_mutex_destroy(&async_mutex);
-
 	cout << "process exit" << endl << flush;
 
 }
