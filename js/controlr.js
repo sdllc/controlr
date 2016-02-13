@@ -14,11 +14,19 @@ const path = require( "path" );
 const events = require( "events" );
 const child_process = require( "child_process" );
 
-// there's not a lot of well-known stuff operating nearby
+// tcp defaults.  we use port 1440 but can climb up if it's in
+// use (for multiple instances, for example); there's not a 
+// lot of well-known stuff operating nearby
+
 const DEFAULT_TCP_PORT_START = 1440;
 const DEFAULT_TCP_PORT_END = 1480;
 const DEFAULT_TCP_HOST = "127.0.0.1";
 
+/**
+ * start child process. set necessary environment info on various
+ * platforms.  pass in arguments to child (generally the pipe name
+ * or tcp address).
+ */
 var start_child_process = function( opts, args ){
 	
 	var env = {}, file, ext = "";
@@ -178,6 +186,15 @@ var ControlR = function(){
 					|| packet.type === "browser"  
 					|| packet.type === "pager" ){
                 instance.emit( packet.type, packet.data );
+				}
+				else if( packet.type === "watch" ){
+					
+					// we could actually handle this one here -- not
+					// sure if it makes sense or if we should let the 
+					// shell do it
+					
+					instance.emit( packet.type, packet.data );
+					
 				}
 				else console.info( "unexpected packet type", packet );
         }
