@@ -168,12 +168,19 @@ void timer_callback(uv_timer_t *handle){
 
 /**
  * output from R, pass to parent process as a formatted object
+ * NOTE that we are buffering until there's a newline
  */
 void log_message( const char *buf, int len = -1, bool console = false ){
-	 
-	json j = {{"type", "console"}, {"message", buf}, {"flag", console}};
-	writeJSON( j, client, write_callback);
-
+	static std::ostringstream os;
+	os << buf;
+	if( len < 0 ) len = strlen(buf);
+	if( len > 0 && buf[len-1] == '\n' )
+	{
+		json j = {{"type", "console"}, {"message", os.str()}, {"flag", console}};
+		writeJSON( j, client, write_callback);
+		os.str("");
+		os.clear();
+	}
 }
 
 /** standard alloc method */

@@ -25,14 +25,6 @@
 
 std::string dllpath;
 
-//bool g_buffering = false;
-//std::vector< std::string > logBuffer;
-//std::vector< std::string > cmdBuffer;
-
-extern bool g_buffering ;
-extern std::vector< std::string > logBuffer;
-extern std::vector< std::string > cmdBuffer;
-
 HANDLE muxLog;
 HANDLE muxExecR;
 
@@ -58,7 +50,7 @@ extern void direct_callback_json( const char *channel, const char *json );
 extern void direct_callback_sexp( const char *channel, SEXP sexp );
 
 
-SEXP exec_r(std::vector< std::string > &vec, int *err = 0, ParseStatus *pStatus = 0, bool withVisible = false);
+SEXP exec_r(std::vector< std::string > &vec, int *err = 0, ParseStatus *pStatus = 0, bool printResult = false );
 
 
 /*
@@ -72,36 +64,16 @@ void log_message(const char *buf, int len = -1, bool console = false ){
 
 int R_ReadConsole(const char *prompt, char *buf, int len, int addtohistory)
 {
-	std::cout << " *** " << std::endl << std::flush;
+	// unless we call one of the repl functions 
+	// this will never get called, so we can ignore it
 	
-	fputs(prompt, stdout);
-	fflush(stdout);
-	if (fgets(buf, len, stdin)) return 1; else return 0;
+	return 0;
+	
 }
 
 void R_WriteConsole(const char *buf, int len)
 {
-	DWORD rslt = WaitForSingleObject(muxLog, INFINITE);
-	if (g_buffering) logBuffer.push_back(buf);
-	else log_message(buf, len);
-	ReleaseMutex(muxLog);
-}
-
-void flush_log()
-{
-	DWORD rslt = WaitForSingleObject(muxLog, INFINITE);
-	std::string str;
-	for (std::vector< std::string > ::iterator iter = logBuffer.begin(); iter != logBuffer.end(); iter++)
-	{
-		str += *iter;
-	}
-	logBuffer.clear();
-
-	// this is dumb.  check ^ before iterating.
-
-	if (str.length() > 0 ) 
-		log_message(str.c_str(), str.length());
-	::ReleaseMutex(muxLog);
+	log_message(buf, len);
 }
 
 void R_CallBack(void)
@@ -212,7 +184,10 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	
 	/////
 
+	// typedef enum {RGui, RTerm, LinkDLL} UImode;
 	Rp->CharacterMode = LinkDLL;
+	//Rp->CharacterMode = RGui;
+	
 	Rp->ReadConsole = R_ReadConsole;
 	Rp->WriteConsole = R_WriteConsole;
 	Rp->CallBack = R_CallBack;
@@ -224,6 +199,18 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 
 	Rp->RestoreAction = SA_RESTORE;
 	Rp->SaveAction = SA_NOSAVE;
+	
+	///////
+	
+	printf( "R_Quiet? %s\n", Rp->R_Quiet ? "true" : "false" );
+	printf( "R_Slave? %s\n", Rp->R_Slave ? "true" : "false" );
+	printf( "R_Interactive? %s\n", Rp->R_Interactive ? "true" : "false" );
+	printf( "R_Verbose? %s\n", Rp->R_Verbose ? "true" : "false" );
+	printf( "CharacterMode? %d\n", (int)(Rp->CharacterMode));
+
+	/////////
+
+
 
 	R_SetParams(Rp);
 	R_set_command_line_arguments(0, 0);

@@ -216,6 +216,7 @@ var ControlR = function(){
 	  * generic exec function.  
 	  */
     var exec_packet = function( packet ){
+		 //console.info( "EP", packet );
         return new Promise( function( resolve, reject ){
             if( busy ) reject( "busy" );
             else {

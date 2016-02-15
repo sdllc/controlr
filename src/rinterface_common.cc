@@ -26,15 +26,18 @@
 #include <R_ext/Parse.h>
 #include <R_ext/Rdynload.h>
 
-bool g_buffering = false;
-std::vector< std::string > logBuffer;
 std::vector< std::string > cmdBuffer;
 
 // try to store fuel now, you jerks
 #undef clear
 #undef length
 
-SEXP exec_r(std::vector < std::string > &vec, int *err, ParseStatus *pStatus, bool withVisible )
+extern "C" {
+	extern void Rf_PrintWarnings();
+	extern Rboolean R_Visible;
+}
+
+SEXP exec_r(std::vector < std::string > &vec, int *err, ParseStatus *pStatus, bool printResult )
 {
 	ParseStatus status ;
 	SEXP cmdSexp, wv = R_NilValue, cmdexpr = R_NilValue;
@@ -58,15 +61,46 @@ SEXP exec_r(std::vector < std::string > &vec, int *err, ParseStatus *pStatus, bo
 	switch (status){
 	case PARSE_OK:
 
-		if (withVisible)
+		if ( printResult )
 		{
+/*			
+	PROTECT(R_CurrentExpr);
+	R_Busy(1);
+	lastExpr = R_CurrentExpr;
+	R_CurrentExpr = eval(R_CurrentExpr, rho);
+	SET_SYMVALUE(R_LastvalueSymbol, R_CurrentExpr);
+	wasDisplayed = R_Visible;
+	if (R_Visible)
+	    PrintValueEnv(R_CurrentExpr, rho);
+	if (R_CollectWarnings)
+	    PrintWarnings();
+	Rf_callToplevelHandlers(lastExpr, R_CurrentExpr, TRUE, wasDisplayed);
+	UNPROTECT(1);
+	*/
+			
+			// I don't know why I can't get R_Visible properly,
+			// but it seems to work using withVisible.
+			
 			wv = PROTECT(Rf_lang2(Rf_install("withVisible"), Rf_lang2(Rf_install("eval"), cmdexpr)));
 			ans = R_tryEval(wv, R_GlobalEnv, &errorOccurred);
 			if (err && errorOccurred) *err = errorOccurred;
 			UNPROTECT(1);
+
+			if( errorOccurred ){
+				if (err) *err = errorOccurred;
+			}
+			else {
+				if (*(LOGICAL(VECTOR_ELT(ans, 1)))) {
+					Rf_PrintValue(VECTOR_ELT(ans, 0));
+				}
+			}
+			
+			Rf_PrintWarnings();
+			
 		}
 		else
 		{
+	
 			// Loop is needed here as EXPSEXP might be of length > 1
 			for (i = 0; i < Rf_length(cmdexpr); i++){
 				SEXP cmd = VECTOR_ELT(cmdexpr, i);
@@ -74,11 +108,10 @@ SEXP exec_r(std::vector < std::string > &vec, int *err, ParseStatus *pStatus, bo
 				if (errorOccurred) {
 					if (err) *err = errorOccurred;
 					UNPROTECT(2);
-					// ::ReleaseMutex(muxExecR);
-
 					return 0;
 				}
 			}
+		
 		}
 		break;
 
@@ -110,8 +143,6 @@ void r_exec_vector(std::vector<std::string> &vec, int *err, PARSE_STATUS_2 *stat
 {
 	ParseStatus ps;
 
-	g_buffering = true;
-
 	// if you want the history() command to appear on the history
 	// stack, like bash, you need to add the line(s) to the buffer
 	// here; and then potentially remove them if you get an INCOMPLETE
@@ -141,6 +172,7 @@ void r_exec_vector(std::vector<std::string> &vec, int *err, PARSE_STATUS_2 *stat
 		}
 	}
 
+/*
 	if (ps == PARSE_OK && printResult && rslt)
 	{
         // rslt will be ( result, visible ) so check the
@@ -154,12 +186,16 @@ void r_exec_vector(std::vector<std::string> &vec, int *err, PARSE_STATUS_2 *stat
 			Rf_PrintValue(VECTOR_ELT(rslt, 0));
 //			::ReleaseMutex(muxExecR);
 		}
-	}
+		// FIXME: print warnings...
 
+		//if( R_CollectWarnings) 
+		Rf_PrintWarnings();
+		
+	}
+	*/	
+	
 	UNPROTECT(1);
 
-	g_buffering = false;
-	flush_log();
 }
 
 nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){

@@ -8,7 +8,7 @@ controlr.on('console', function(msg){
 
 controlr.init({
 //    rhome: "/home/duncan/dev/R-3.2.3",
-    rhome: "/e/projectx/R-3.2.3",
+    rhome: "e:\\editR\\R-3.2.3",
     debug: true
 });
 
