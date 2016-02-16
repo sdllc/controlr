@@ -183,6 +183,7 @@ var ControlR = function(){
                 instance.emit( 'console', packet.message );
             }
 				else if( packet.type === "graphics" 
+					|| packet.type === "system"  
 					|| packet.type === "browser"  
 					|| packet.type === "pager" ){
                 instance.emit( packet.type, packet.data );
