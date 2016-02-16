@@ -94,8 +94,14 @@ SEXP exec_r(std::vector < std::string > &vec, int *err, ParseStatus *pStatus, bo
 					Rf_PrintValue(VECTOR_ELT(ans, 0));
 				}
 			}
-			
+
+#ifdef WIN32
 			Rf_PrintWarnings();
+#endif 
+
+            // FIXME: linux? this symbol is not exported, AFAICT.  
+            // Check the REPL code for the linux F-E.
+
 			
 		}
 		else
