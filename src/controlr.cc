@@ -78,6 +78,7 @@ void direct_callback( const char *channel, const char *data ){
 		json response = {{"type", channel}, {"data", j}};
 		if( uv_is_writable( client ))
 			writeJSON( response, client, write_callback);
+        else cout << " ** WARNING: not writable" << endl;	
 	}
 	catch( ... ){
 		cout << "JSON parse exception (unknown)" << endl;
@@ -107,7 +108,8 @@ void external_callback( json &j ){
 	if( uv_is_writable( client )){
 		json msg = {{"type", "callback"}, {"data", j}};
 			writeJSON( msg, client, write_callback);
-	}		
+	}	
+    else cout << " ** WARNING: not writable" << endl;	
 	
 }
 

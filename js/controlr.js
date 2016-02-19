@@ -134,32 +134,42 @@ var write_packet = function( socket, packet ){
     });
 };
 
+/**
+ * buffer is an object, see note below
+ */
 var on_read = function( socket, buffer, callback ){
     
 	var str = socket.read();
 	if( !str ) return;
-	 
+   
 	var elts = str.split( "\n" );
+  
 	elts.map( function(x){
-
-		if( buffer.length ) x = buffer + x;
         
-		// valid packet (probably? cheaper than try/catch)
-    	if( x.trim().endsWith( '}' )){		
-			buffer = "";
-			if( x.trim().length ){
-				var json = null;
-				try { json = JSON.parse(x); } 
-				catch( e ){
-					console.info(`parse exception: ${e}`, x);
-					buffer = x;
-				}
-				if( json ) callback(json);
-			}
-		}
-		else buffer = x;
+        if( x.length ){ // why are 0-len packets in this array?
+        
+    		if( buffer.data.length ) x = buffer.data + x;
+        
+            // valid packet (probably? cheaper than try/catch)
+            if( x.trim().endsWith( '}' )){		
+                buffer.data = "";
+                if( x.trim().length ){
+                    var json = null;
+                    try { json = JSON.parse(x); } 
+                    catch( e ){
+                        console.info(`[controlr] parse exception: ${e} (packet ${packet_id} in global.packet)`);
+                        global.packet = x;
+                    }
+                    if( json ) callback(json);
+                }
+            }
+            else {
+                buffer.data = x;
+            }
+        }
+        
 	});
-	
+    
 };
     
 var ControlR = function(){
@@ -170,7 +180,14 @@ var ControlR = function(){
     var socket_file = null; 
     var socket = null;
     var server = null;
-    var buffer = "";
+
+    // NOTE: on linux, binding a function to a string does not pass 
+    // the string by reference.  therefore if we want the buffer passed 
+    // by reference we need to wrap it in an object and bind the object.
+    // 
+    // different behavior on windows & linux makes this tough to debug!
+
+    var buffer = { data: "" };
 
     var instance = this;
 
