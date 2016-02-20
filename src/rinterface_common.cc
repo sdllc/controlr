@@ -221,149 +221,74 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 
 	if (Rf_isFrame(sexp))
 	{
-		/*
-		int err;
-		int nc = len + 1; 
-		SEXP s = VECTOR_ELT(sexp, 0);
-		int nr = Rf_length(s) + 1;
+		int nr, nc = Rf_length(sexp);
+		if( nc > 0 ){
+			SEXP c = VECTOR_ELT(sexp, 0);
+			nr = Rf_length(c);
+		}
 
-		// data frames always have row, column names
-
-		rslt->xltype = xltypeMulti;
-		rslt->val.array.rows = nr;
-		rslt->val.array.columns = nc;
-		rslt->val.array.lparray = new XLOPER12[nr*nc];
-
-		// init or excel will show errors for ALL elements
-		// include a "" for the top-left corner
-
-		rslt->val.array.lparray[0].xltype = xltypeStr;
-		rslt->val.array.lparray[0].val.str = new XCHAR[1];
-		rslt->val.array.lparray[0].val.str[0] = 0;
-
-		for (int i = 1; i < nr*nc; i++) rslt->val.array.lparray[i].xltype = xltypeMissing;
+		SEXP rownames = getAttrib(sexp, R_DimNamesSymbol);
+		if( rownames ){
+			nlohmann::json jrownames;
+			json["rownames"] = SEXP2JSON( rownames, jrownames );
+		}
 		
-		// column (member) names
-
-		SEXP cn = PROTECT(R_tryEval(Rf_lang2(R_NamesSymbol, sexp), R_GlobalEnv, &err));
-		if (cn)
-		{
-			len = Rf_length(cn);
-			type = TYPEOF(cn);
-
-			if (len != nc-1)
-			{
-				DebugOut("** Len != NC-1\n");
-			}
-
-			for (int c = 0; c < len; c++)
-			{
-				int idx = c + 1;
-				switch (type)
-				{
-				case INTSXP:	//  13	  // integer vectors 
-					if (!ISNA((INTEGER(cn))[c]))
-					{
-						rslt->val.array.lparray[idx].xltype = xltypeInt;
-						rslt->val.array.lparray[idx].val.w = (INTEGER(cn))[c];
-					}
-					break;
-				case REALSXP:	//  14	   real variables  
-					rslt->val.array.lparray[idx].xltype = xltypeNum;
-					rslt->val.array.lparray[idx].val.num = (REAL(cn))[c];
-					break;
-				case STRSXP:	//  16	  string vectors - legal?  
-					STRSXP2XLOPER(&(rslt->val.array.lparray[idx]), STRING_ELT(cn, c));
-					break;
-				case CPLXSXP:	//	15	   complex variables 
-					CPLXSXP2XLOPER(&(rslt->val.array.lparray[idx]), (COMPLEX(cn))[c]);
-					break;
-				default:
-					DebugOut("** Unexpected type in data frame (col) names: %d\n", type);
-					break;
-				}
-			}
-
+		SEXP colnames = getAttrib(sexp, R_NamesSymbol);
+		if( colnames ){
+			nlohmann::json jcolnames;
+			json["colnames"] = SEXP2JSON( colnames, jcolnames );
 		}
-		UNPROTECT(1);
 
-		// get row names, we'll stick them in column 0
+		std::vector< std::vector< nlohmann::json >> cols;
 
-		SEXP rn = PROTECT(R_tryEval(Rf_lang2( R_RowNamesSymbol, sexp), R_GlobalEnv, &err));
-		if (rn)
+		SEXP strsxp;
+	
+		for (int i = 0; i < nc; i++)
 		{
-			len = Rf_length(rn);
-			type = TYPEOF(rn);
-
-			if (len != nr-1)
+			std::vector< nlohmann::json > col;
+			SEXP c = VECTOR_ELT(sexp, i);
+			type = TYPEOF(c);
+			
+			for (int j = 0; j < nr; j++)
 			{
-				DebugOut("** Len != NR-1\n");
-			}
-			for (int r = 0; r < len; r++)
-			{
-				int idx = (r+1) * nc + 0;
+				nlohmann::json jval;
 				switch (type)
 				{
-				case INTSXP:	//  13	  / integer vectors 
-					rslt->val.array.lparray[idx].xltype = xltypeInt;
-					rslt->val.array.lparray[idx].val.w = (INTEGER(rn))[r];
+				case INTSXP:	
+					jval = (INTEGER(c))[j];
 					break;
-				case STRSXP:	//  16	  * string vectors - legal? * 
-					STRSXP2XLOPER(&(rslt->val.array.lparray[idx]), STRING_ELT(rn, r));
+					
+				case REALSXP:
+					if (ISNA( (REAL(c))[j] )) jval = nullptr;
+					else jval = (REAL(c))[j];
 					break;
-				case CPLXSXP:	//	15	 * complex variables *
-					CPLXSXP2XLOPER(&(rslt->val.array.lparray[idx]), (COMPLEX(rn))[r]);
+
+				case STRSXP:	
+					strsxp = STRING_ELT(c, j);
+					jval = CHAR(Rf_asChar(strsxp));
+					break;
+
+				case CPLXSXP:
+					jval = "complex";
 					break;
 
 				default:
-					DebugOut( "** Unexpected type in data frame row names: %d\n", type);
+					printf("Unexpected type in list: %d\n", type);
 					break;
+
 				}
+				
+				col.push_back( jval );
 			}
+				
+			nlohmann::json jcol = col;
+			cols.push_back(jcol);
 		}
-		UNPROTECT(1);
-
-		for (int i = 0; i < nc - 1; i++) 
-		{
-			s = VECTOR_ELT(sexp, i);
-			type = TYPEOF(s);
-			len = Rf_length(s);
-
-			if (len != nr)
-			{
-				DebugOut("** Len != NR\n");
-			}
-
-			for (int r = 0; r < len; r++)
-			{
-				// offset for column names, row names
-				int idx = (r+1) * nc + i + 1; 
-
-				switch (type)
-				{
-				case INTSXP:	//  13	  / * integer vectors * /
-					rslt->val.array.lparray[idx].xltype = xltypeInt;
-					rslt->val.array.lparray[idx].val.w = (INTEGER(s))[r];
-					break;
-				case REALSXP:	//  14	  / * real variables * /  
-					rslt->val.array.lparray[idx].xltype = xltypeNum;
-					rslt->val.array.lparray[idx].val.num = (REAL(s))[r];
-					break;
-				case STRSXP:	//  16	  / * string vectors - legal? * / 
-					STRSXP2XLOPER(&(rslt->val.array.lparray[idx]), STRING_ELT(s, r));
-					break;
-				case CPLXSXP:	//	15	  / * complex variables * /
-					CPLXSXP2XLOPER(&(rslt->val.array.lparray[idx]), (COMPLEX(s))[r]);
-					break;
-
-				default:
-					DebugOut("** Unexpected type in data frame: %d\n", type);
-					break;
-				}
-			}
-
-		}
-		*/
+		
+		json["data"] = cols;
+		
+	////////////////////////	
+	
 	}
 	else if (type == VECSXP)
 	{
