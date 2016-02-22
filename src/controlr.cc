@@ -305,12 +305,8 @@ void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
 
 void connect_cb(uv_connect_t* req, int status){
 
-	cout << "connect_cb, status=" << status << endl;
-	
 	if( !status ){
 		if( uv_is_readable( client )){
-			
-			cout << "readable, calling read start" << endl;
 			uv_read_start( client, alloc_buffer, read_cb );
 		}
 		else cout <<"client not readable!" << endl;
@@ -339,7 +335,7 @@ int main( int argc, char **argv ){
 	uv_async_init( loop, &async, async_callback );
 
 	if( argc > 2 ){
-		cout << "connecting tcp: " << argv[1] << ":" << atoi(argv[2]) << endl;
+		// cout << "connecting tcp: " << argv[1] << ":" << atoi(argv[2]) << endl;
 		uv_tcp_init(loop, &_tcp);
 		client = (uv_stream_t*)&_tcp;
 		struct sockaddr_in dest;
@@ -347,7 +343,7 @@ int main( int argc, char **argv ){
 		uv_tcp_connect( &req, &_tcp, (const struct sockaddr*)&dest, connect_cb);
 	}
 	else {
-		cout << "connecting pipe" << endl;
+		// cout << "connecting pipe" << endl;
 		client = (uv_stream_t*)&_pipe;
 		uv_pipe_init(loop, &_pipe, 0 /* ipc */);
 		uv_pipe_connect( &req, &_pipe, argv[1], connect_cb);
@@ -357,7 +353,8 @@ int main( int argc, char **argv ){
 	
 	// clean up
 	uv_mutex_destroy(&async_mutex);
-	cout << "process exit" << endl << flush;
+	
+	// cout << "process exit" << endl << flush;
 
 }
 
