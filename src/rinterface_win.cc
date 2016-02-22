@@ -200,7 +200,7 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	Rp->RestoreAction = SA_RESTORE;
 	Rp->SaveAction = SA_NOSAVE;
 	
-	///////
+	/*
 	
 	printf( "R_Quiet? %s\n", Rp->R_Quiet ? "true" : "false" );
 	printf( "R_Slave? %s\n", Rp->R_Slave ? "true" : "false" );
@@ -208,9 +208,7 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	printf( "R_Verbose? %s\n", Rp->R_Verbose ? "true" : "false" );
 	printf( "CharacterMode? %d\n", (int)(Rp->CharacterMode));
 
-	/////////
-
-
+	*/
 
 	R_SetParams(Rp);
 	R_set_command_line_arguments(0, 0);

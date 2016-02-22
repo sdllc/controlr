@@ -217,6 +217,8 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 	int len = Rf_length(sexp);
 	int type = TYPEOF(sexp);
 
+	// std::cout << "TYPE " << type << std::endl;
+	
 	// FIXME: there's starting to be a lot of repeated code here...
 
 	if (Rf_isFrame(sexp))
@@ -274,6 +276,7 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 
 				default:
 					printf("Unexpected type in list: %d\n", type);
+					fflush(0);
 					break;
 
 				}
@@ -302,7 +305,8 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 
 		if (Rf_isMatrix(sexp))
 		{
-			printf( "VECSXP + is matrix [?]\n" );
+			std::cout << "VECSXP + is matrix [?]" << std::endl;
+			
 			/*
 			nr = Rf_nrows(sexp);
 			nc = Rf_ncols(sexp);
@@ -365,7 +369,7 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 		}
 		else // list
 		{
-			printf( "* not env?\n" );
+			// std::cout << "* not env?" << std::endl;
 			
 			// len is nc?
 
@@ -411,7 +415,8 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 		if (!err && names != R_NilValue) {
 		
 			int len = Rf_length(names);
-			printf( "names len %d\n", len );
+			// std::cout << "names len " << len << std::endl;
+			
 			for (int c = 0; c < len; c++)
 			{
 				SEXP name = STRING_ELT(names, c);
@@ -429,17 +434,14 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 			}
 			
 		}
-		else printf( "names = mil;\n" );
+		// else std::cout << "names = mil;" << std::endl;
 		
 		UNPROTECT(1);
 		
 	}
 	else if (len > 1)
 	{
-//		printf( " * VECTOR VALUE\n" );
-
 		// for normal vector, use rows
-
 		int nc = 1, nr = len;
 
 		// for matrix, guaranteed to be 2 dimensions and we 
@@ -458,7 +460,11 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 		int idx = 0;
 		SEXP strsxp;
 		
-		printf( "NR %d, NC %d\n", nr, nc );
+		// std::cout << "NR " << nr << ", NC " << nc << std::endl;
+
+		int err;
+		char buffer[64]; // buffer for $x names
+		SEXP names = PROTECT(R_tryEval(Rf_lang2(R_NamesSymbol, sexp), R_GlobalEnv, &err));
 		
 		for (int i = 0; i < nc; i++)
 		{
@@ -488,24 +494,60 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 
 				default:
 					printf("Unexpected type in list: %d\n", type);
+					fflush(0);
 					break;
 
 				}
 
 				idx++;
-				col.push_back( jval );
+				if( names == R_NilValue ) col.push_back( jval );
+				else {
+					if( col.size() == 0 ){
+						nlohmann::json list;
+						col.push_back(list);
+					}
+					
+					// see list
+					sprintf( buffer, "$%d", j + 1 );
+					std::string strname = buffer;
+					SEXP name = STRING_ELT(names, j);
+					const char *tmp = translateChar(name);
+					if( tmp[0] ) strname = tmp;
+					col[0][strname] = jval;
+				}
+				
 			}
+			
 			nlohmann::json jcol = col;
 			cols.push_back(jcol);
+
 		}
-		if( cols.size() == 1 ) json = cols[0];
-		else json = cols;
+		
+		// destructure a little bit.  if it's a single column, compress to 
+		// rows.  if it has names, remove the array structure.
+		
+		if( cols.size() == 1 ){
+			if( cols[0].size() == 1 ){
+				json = cols[0][0];
+			}
+			else {
+				json = cols[0];
+			}
+		}
+		else {
+			
+			// FIXME: names?
+			
+			json = cols;
+		}
+		
+		
+		UNPROTECT(1);
 		
 	}
 	else
 	{
-//		printf( " * SINGLE VALUE\n" );
-		
+	
 		// single value
 
 		if (isLogical(sexp)) 
