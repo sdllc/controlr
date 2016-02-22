@@ -61,7 +61,9 @@ void R_WriteConsoleEx( const char* message, int len, int status ){
        log_message( buffer.c_str(), buffer.length()); 
        buffer.clear();
     }
-    
+    else if( len > 0 ){
+		std::cout << "LM| " << message << std::endl;
+	}
     // log_message( message, len );
 }
 

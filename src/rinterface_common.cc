@@ -154,7 +154,8 @@ void r_exec_vector(std::vector<std::string> &vec, int *err, PARSE_STATUS_2 *stat
 	// here; and then potentially remove them if you get an INCOMPLETE
 	// response (b/c in that case we'll see it again)
 
-	SEXP rslt = PROTECT(exec_r(vec, err, &ps, true));
+	//SEXP rslt = PROTECT(exec_r(vec, err, &ps, true));
+	exec_r(vec, err, &ps, true);
 
 	if (status)
 	{
@@ -200,7 +201,7 @@ void r_exec_vector(std::vector<std::string> &vec, int *err, PARSE_STATUS_2 *stat
 	}
 	*/	
 	
-	UNPROTECT(1);
+	// UNPROTECT(1);
 
 }
 
@@ -223,7 +224,7 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 
 	if (Rf_isFrame(sexp))
 	{
-		int nr, nc = Rf_length(sexp);
+		int nr = 0, nc = Rf_length(sexp);
 		if( nc > 0 ){
 			SEXP c = VECTOR_ELT(sexp, 0);
 			nr = Rf_length(c);
