@@ -181,6 +181,23 @@ var ControlR = function(){
     var socket = null;
     var server = null;
 
+	/** 
+	 * command queue for tolling commands while busy.  use sparingly.
+	 */
+	var command_queue = [];
+
+	/** pop the queue and exec */
+	function run_command_queue(){
+		if( !busy && command_queue.length ){
+			var cmd = command_queue.splice(0,1);
+			this.internal( cmd[0].command ).then( function( response ){
+				cmd[0].resolve.call( this, response );
+			}).catch(function(){
+				cmd[0].reject.apply( this, arguments );
+			});
+		}
+	}
+
     // NOTE: on linux, binding a function to a string does not pass 
     // the string by reference.  therefore if we want the buffer passed 
     // by reference we need to wrap it in an object and bind the object.
@@ -229,12 +246,11 @@ var ControlR = function(){
 				  
         });
     };
-
+	
 	 /**
 	  * generic exec function.  
 	  */
     var exec_packet = function( packet ){
-		 //console.info( "EP", packet );
         return new Promise( function( resolve, reject ){
             if( busy ) reject( "busy" );
             else {
@@ -244,11 +260,14 @@ var ControlR = function(){
                     busy = false;
                     notify = null;
                     if( response ){
-							  if( response.parsestatus === 3 ) reject(response); // parse err
-							  resolve( response );
-						  }
+						if( response.parsestatus === 3 ) reject(response); // parse err
+						resolve( response );
+					}
                     else reject();
-                    instance.emit( 'state-change', busy );
+                    setImmediate(function(){
+						instance.emit( 'state-change', busy );
+						run_command_queue.call(instance);
+					});
                 };
                 write_packet( socket, packet );
             }
@@ -271,6 +290,31 @@ var ControlR = function(){
            command: 'internal', commands: cmds 
         });
     };
+
+	/** 
+	 * execute a command OR, if busy, queue it up for execution.
+	 * key is a field which is matched against existing keys.  if set, and 
+	 * if a matching key is found, the PREVIOUS queued call will be removed.
+	 */
+	this.queued_internal = function( cmds, key ){
+		
+		if( !busy ) return this.internal( cmds );
+
+		return new Promise( function( resolve, reject ){
+			
+			if( key ){
+				var tmp = [];
+				command_queue.map( function(x){
+					if( x.key !== key ) tmp.push(x);
+					else if( x.reject ) x.reject.call( this, "superceded" );
+				})
+				command_queue = tmp;
+			}
+			command_queue.push({ command: cmds, key: key, resolve: resolve, reject: reject });
+			
+		});
+		
+	};
 
     /** shutdown and clean up */    
     this.shutdown = function(){
