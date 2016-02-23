@@ -92,8 +92,9 @@ var create_pipe_name = function(){
 }
 
 /**
- * returns (via promise) the first available port starting at [port]
- * up to [port+count], or rejects.
+ * resolves to the first available port starting at [port]
+ * and up to [port+count], or rejects if there's nothing available
+ * in the range
  */
 var check_port = function( port, host, count ) {
 	return new Promise( function( resolve, reject ){
@@ -116,7 +117,8 @@ var check_port = function( port, host, count ) {
 				.listen(port, host);
 	});
 };
-	
+
+/** delay via promise */	
 var pause = function( delay, func ){
     return new Promise( function( resolve, reject ){
         setTimeout( function(){
@@ -126,6 +128,7 @@ var pause = function( delay, func ){
     });
 };
 
+/** write to socket */
 var write_packet = function( socket, packet ){
     return new Promise( function( resolve, reject ){
         socket.write( JSON.stringify( packet ) + "\n\0", function(){
@@ -181,8 +184,6 @@ var ControlR = function(){
     var socket = null;
     var server = null;
 
-	//var interval = null;
-
 	/** 
 	 * command queue for tolling commands while busy.  use sparingly.
 	 */
@@ -203,16 +204,23 @@ var ControlR = function(){
     // NOTE: on linux, binding a function to a string does not pass 
     // the string by reference.  therefore if we want the buffer passed 
     // by reference we need to wrap it in an object and bind the object.
-    // 
-    // different behavior on windows & linux makes this tough to debug!
 
     var buffer = { data: "" };
 
     var instance = this;
 
+	/** 
+	 * buffering console messages.  this is more important on linux than 
+	 * on windows, b/c we get lots of small writes.
+	 */
 	var console_buffer = "";
+	
+	/**
+	 * timer handle for the console buffer, also used as a flag
+	 */
 	var interval = null;
 
+	/** send whatever's in the console buffer */
 	var flush_console = function(){
 		interval = null;
 		instance.emit( 'console', console_buffer );
@@ -261,17 +269,28 @@ var ControlR = function(){
         });
     };
 	
-	 /**
-	  * generic exec function.  
-	  */
-    var exec_packet = function( packet ){
-        return new Promise( function( resolve, reject ){
-            if( busy ) reject( "busy" );
+	/**
+	 * generic exec function.  
+	 */
+	var exec_packet = function( packet ){
+		return new Promise( function( resolve, reject ){
+			if( busy ) reject( "busy" );
             else {
                 busy = true;
                 instance.emit( 'state-change', busy );
                 notify = function( response ){
+					
+					// generally if we were buffering command output, and the 
+					// command is complete, messages should be finished.  that
+					// might not account for clogged pipes, though. [TODO: stress test]
+
+					if( interval ){
+						clearTimeout( interval );
+						flush_console(); // nulls interval
+					}
+					
 					busy = false;
+					
                     notify = null;
                     if( response ){
 						if( response.parsestatus === 3 ) reject(response); // parse err
@@ -308,9 +327,12 @@ var ControlR = function(){
     };
 
 	/** 
-	 * execute a command OR, if busy, queue it up for execution.
+	 * execute a command or, if busy, queue it up for execution.
 	 * key is a field which is matched against existing keys.  if set, and 
 	 * if a matching key is found, the PREVIOUS queued call will be removed.
+	 * 
+	 * that's for things like "set console width", where we might have 
+	 * mutliple queued calls and the earlier calls are superfluous.
 	 */
 	this.queued_internal = function( cmds, key ){
 		
@@ -360,7 +382,7 @@ var ControlR = function(){
      * need to clean up, and (2) you can set up event handlers before 
      * initializing.
      */
-    this.init = function(){
+	this.init = function(){
 
         opts = arguments[0] || {};
         if( opts.debug ) console.info( "controlr init", opts );
