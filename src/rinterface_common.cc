@@ -43,10 +43,8 @@ SEXP exec_r(std::vector < std::string > &vec, int *err, ParseStatus *pStatus, bo
 	SEXP cmdSexp, wv = R_NilValue, cmdexpr = R_NilValue;
 	SEXP ans = 0;
 	int i, errorOccurred;
-    
-	if (vec.size() == 0) return R_NilValue;
 
-//	::WaitForSingleObject(muxExecR, INFINITE);
+	if (vec.size() == 0) return R_NilValue;
 
 	PROTECT(cmdSexp = Rf_allocVector(STRSXP, vec.size()));
 	for (unsigned int ui = 0; ui < vec.size(); ui++)
@@ -63,27 +61,12 @@ SEXP exec_r(std::vector < std::string > &vec, int *err, ParseStatus *pStatus, bo
 
 		if ( printResult )
 		{
-/*			
-	PROTECT(R_CurrentExpr);
-	R_Busy(1);
-	lastExpr = R_CurrentExpr;
-	R_CurrentExpr = eval(R_CurrentExpr, rho);
-	SET_SYMVALUE(R_LastvalueSymbol, R_CurrentExpr);
-	wasDisplayed = R_Visible;
-	if (R_Visible)
-	    PrintValueEnv(R_CurrentExpr, rho);
-	if (R_CollectWarnings)
-	    PrintWarnings();
-	Rf_callToplevelHandlers(lastExpr, R_CurrentExpr, TRUE, wasDisplayed);
-	UNPROTECT(1);
-	*/
 			
 			// I don't know why I can't get R_Visible properly,
 			// but it seems to work using withVisible.
 			
 			wv = PROTECT(Rf_lang2(Rf_install("withVisible"), Rf_lang2(Rf_install("eval"), cmdexpr)));
 			ans = R_tryEval(wv, R_GlobalEnv, &errorOccurred);
-			if (err && errorOccurred) *err = errorOccurred;
 			UNPROTECT(1);
 
 			if( errorOccurred ){
@@ -91,7 +74,19 @@ SEXP exec_r(std::vector < std::string > &vec, int *err, ParseStatus *pStatus, bo
 			}
 			else {
 				if (*(LOGICAL(VECTOR_ELT(ans, 1)))) {
-					Rf_PrintValue(VECTOR_ELT(ans, 0));
+					
+					// Rf_PrintValue can throw an exception.  using this wrapper call 
+					// protects us against the error, although there's probably a cheaper 
+					// way to do that.  
+					
+					// for some reason this call takes a long time to unwind the error
+					// (if there's an error), much longer than calling from R itself.
+					// something to do with contexts?
+					
+					R_tryEval(Rf_lang2(Rf_install("print"), VECTOR_ELT(ans, 0)), R_GlobalEnv, &errorOccurred );
+					
+					//Rf_PrintValue(VECTOR_ELT(ans, 0));
+					
 				}
 			}
 
@@ -101,7 +96,6 @@ SEXP exec_r(std::vector < std::string > &vec, int *err, ParseStatus *pStatus, bo
 
             // FIXME: linux? this symbol is not exported, AFAICT.  
             // Check the REPL code for the linux F-E.
-
 			
 		}
 		else

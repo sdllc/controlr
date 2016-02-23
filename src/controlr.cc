@@ -278,6 +278,7 @@ void processCommand( json &j ){
 				response["response"] = exec_to_json( rslt, strvec, &err, &ps, false );
 			}
 			else r_exec_vector(strvec, &err, &ps, true, false );
+
 		}
 		
 		response["parsestatus"] = ps;
