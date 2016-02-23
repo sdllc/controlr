@@ -181,6 +181,8 @@ var ControlR = function(){
     var socket = null;
     var server = null;
 
+	//var interval = null;
+
 	/** 
 	 * command queue for tolling commands while busy.  use sparingly.
 	 */
@@ -208,30 +210,42 @@ var ControlR = function(){
 
     var instance = this;
 
+	var console_buffer = "";
+	var interval = null;
+
+	var flush_console = function(){
+		interval = null;
+		instance.emit( 'console', console_buffer );
+		console_buffer = "";
+	}
+
     var read_callback = function( packet ){
         if( packet.type ){
             if( packet.type === "response" ){
                 if( notify ) notify.call( this, packet );
             }
             else if( packet.type === "console" ){
-                instance.emit( 'console', packet.message );
+                // instance.emit( 'console', packet.message );
+				if( interval ) clearTimeout( interval );
+				console_buffer += packet.message;
+				interval = setTimeout( flush_console, 50 );
             }
-				else if( packet.type === "graphics" 
-					|| packet.type === "system"  
-					|| packet.type === "browser"  
-					|| packet.type === "pager" ){
-                instance.emit( packet.type, packet.data );
-				}
-				else if( packet.type === "watch" ){
+			else if( packet.type === "graphics" 
+						|| packet.type === "system"  
+						|| packet.type === "browser"  
+						|| packet.type === "pager" ){
+				instance.emit( packet.type, packet.data );
+			}
+			else if( packet.type === "watch" ){
 					
-					// we could actually handle this one here -- not
-					// sure if it makes sense or if we should let the 
-					// shell do it
+				// we could actually handle this one here -- not
+				// sure if it makes sense or if we should let the 
+				// shell do it
 					
-					instance.emit( packet.type, packet.data );
+				instance.emit( packet.type, packet.data );
 					
-				}
-				else console.info( "unexpected packet type", packet );
+			}
+			else console.info( "unexpected packet type", packet );
         }
 		  else console.info( "Packet missing type", packet );
     };
@@ -318,6 +332,10 @@ var ControlR = function(){
 
     /** shutdown and clean up */    
     this.shutdown = function(){
+		//if( interval ){
+		//	clearInterval( interval );
+		//	interval = undefined;
+		//}
         if( socket ){
             exec_packet({ command: 'rshutdown' }).then( function(){
                 close();    
@@ -405,6 +423,7 @@ var ControlR = function(){
 
 			pause( 100 ).then( function(){
 				if( opts.debug ) console.info( "calling init" );
+				//interval = setInterval( flush_console.bind( instance ), 50 );
 				return exec_packet({
 						command: 'rinit',
 						rhome: opts.rhome || "" });

@@ -53,7 +53,7 @@ void R_WriteConsoleEx( const char* message, int len, int status ){
     // we are buffering until there's a newline.
     
     // FIXME: use stringstream?
-    
+    /*
     static std::string buffer;
     buffer += message;
     if( len <= 0 ) len = strlen( message );
@@ -64,7 +64,9 @@ void R_WriteConsoleEx( const char* message, int len, int status ){
     else if( len > 0 ){
 		std::cout << "LM| " << message << std::endl;
 	}
-    // log_message( message, len );
+	*/
+    // 
+	log_message( message, len );
 }
 
 int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){

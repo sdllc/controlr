@@ -24,6 +24,8 @@ bool closing_sequence = false;
 bool initialized = false;
 
 std::string arg0;
+std::ostringstream os_buffer;
+
 
 // from docs:
 // ...
@@ -140,6 +142,15 @@ void write_callback(uv_write_t *req, int status) {
  */
 void async_callback( uv_async_t *handle ){
 
+	std::string str = os_buffer.str();
+	if( str.length()){
+		json j = {{"type", "console"}, {"message", os_buffer.str()}, {"flag", false}};
+		writeJSON( j, client, write_callback);
+		os_buffer.str("");
+		os_buffer.clear();
+	}
+
+	/*
 	STRVECTOR vector;
 
 	uv_mutex_lock(&async_mutex);
@@ -156,6 +167,8 @@ void async_callback( uv_async_t *handle ){
 		json j = {{"type", "callback"}, {"data", data}};
 		writeJSON( j, client, write_callback);
 	}
+	*/
+	
 }
 
 /**
@@ -163,34 +176,33 @@ void async_callback( uv_async_t *handle ){
  * (like the httpd server) and tcl stuff
  */
 void timer_callback(uv_timer_t *handle){
+	
 	uv_timer_stop( &timer );
 	if( initialized ) r_tick();
+	
 	uv_timer_start(&timer, timer_callback, TIMER_TICK, TIMER_TICK);
 }
 
 /**
- * output from R, pass to parent process as a formatted object
- * NOTE that we are buffering until there's a newline
+ * output from R, pass to parent process as a formatted object.
  *
- * FIXME: temporarily unbuffering.  should possibly buffer small packets?
+ * we experimented with buffering here.  you can't buffer on newlines,
+ * as that breaks progress bars (assuming you want to support them).
+ * timer- or async-based buffering doesn't work because exec blocks 
+ * the event loop (which is sort of what this class is for).
+ *
+ * threading might be useful here, although R has a problem with 
+ * not being in the main thread.
+ *
+ * current solution is to buffer in the calling process.  this results
+ * in a lot of messages from us -> parent, but parent -> ui can reduce
+ * message load.
  */
 void log_message( const char *buf, int len = -1, bool console = false ){
 
-	/*
-	static std::ostringstream os;
-	os << buf;
-	if( len < 0 ) len = strlen(buf);
-	if( len > 0 && buf[len-1] == '\n' )
-	{
-		json j = {{"type", "console"}, {"message", os.str()}, {"flag", console}};
-		writeJSON( j, client, write_callback);
-		os.str("");
-		os.clear();
-	}
-	*/
-
 	json j = {{"type", "console"}, {"message", buf}, {"flag", console}};
 	writeJSON( j, client, write_callback);
+
 }
 
 /** standard alloc method */
@@ -212,7 +224,7 @@ void processCommand( json &j ){
 	// cout << "---\n" << j.dump() << "\n---" << endl;
 
 	// toll the timer while we're operating
-	uv_timer_stop( &timer );
+	// uv_timer_stop( &timer );
 	
 	if( !cmd.compare( "break" )){
 		
@@ -225,7 +237,7 @@ void processCommand( json &j ){
 		r_set_user_break();
 		
 		// restart the timer.  ugly.
-		uv_timer_start(&timer, timer_callback, TIMER_TICK, TIMER_TICK);
+		// uv_timer_start(&timer, timer_callback, TIMER_TICK, TIMER_TICK);
 		return;
 		
 	}
@@ -273,6 +285,7 @@ void processCommand( json &j ){
 	}
 	else if( !cmd.compare( "rshutdown" )){
 		
+		uv_timer_stop( &timer );
 		closing_sequence = true;
 		initialized = false;
 		uv_close( (uv_handle_t*)&async, NULL );
@@ -280,15 +293,17 @@ void processCommand( json &j ){
 
 	}
 	else {
+		
 		response["err"] = 2;
 		response["message"] = "Unknown command";
 		response["command"] = cmd;
+		
 	}
 
 	writeJSON( response, client, write_callback);
 
-	if( !closing_sequence )
-		uv_timer_start(&timer, timer_callback, TIMER_TICK, TIMER_TICK);
+	//if( !closing_sequence )
+	//	uv_timer_start(&timer, timer_callback, TIMER_TICK, TIMER_TICK);
 
 	
 }
