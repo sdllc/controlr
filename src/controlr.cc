@@ -171,8 +171,12 @@ void timer_callback(uv_timer_t *handle){
 /**
  * output from R, pass to parent process as a formatted object
  * NOTE that we are buffering until there's a newline
+ *
+ * FIXME: temporarily unbuffering.  should possibly buffer small packets?
  */
 void log_message( const char *buf, int len = -1, bool console = false ){
+
+	/*
 	static std::ostringstream os;
 	os << buf;
 	if( len < 0 ) len = strlen(buf);
@@ -183,6 +187,10 @@ void log_message( const char *buf, int len = -1, bool console = false ){
 		os.str("");
 		os.clear();
 	}
+	*/
+
+	json j = {{"type", "console"}, {"message", buf}, {"flag", console}};
+	writeJSON( j, client, write_callback);
 }
 
 /** standard alloc method */
