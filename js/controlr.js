@@ -271,17 +271,19 @@ var ControlR = function(){
                 busy = true;
                 instance.emit( 'state-change', busy );
                 notify = function( response ){
-                    busy = false;
+					busy = false;
                     notify = null;
                     if( response ){
 						if( response.parsestatus === 3 ) reject(response); // parse err
 						resolve( response );
 					}
                     else reject();
-                    setImmediate(function(){
+
+					setImmediate(function(){
 						instance.emit( 'state-change', busy );
 						run_command_queue.call(instance);
 					});
+
                 };
                 write_packet( socket, packet );
             }
