@@ -9,11 +9,9 @@ uv_tcp_t _tcp;
 
 uv_stream_t *client;
 
-uv_timer_t timer;
-
 locked_vector < json > command_queue;
 locked_vector < json > response_queue;
-locked_vector < json > debug_queue;
+locked_vector < json > input_queue;
 
 uv_async_t async_on_main_loop;
 uv_async_t async_on_thread_loop;
@@ -42,6 +40,9 @@ int i_port;
 
 std::string arg0;
 locked_ostringstream os_buffer;
+
+void processCommand2( json &j );
+
 
 // from docs:
 // ...
@@ -89,13 +90,11 @@ __inline void writeJSON( json &j, uv_stream_t* client, uv_write_cb cb, std::vect
 	
 }
 
-int debug_read(const char *prompt, char *buf, int len, int addtohistory){
+int input_stream_read( const char *prompt, char *buf, int len, int addtohistory ){
 
 	json srcref;
-	json response = {{"type", "debug"}, {"data", {{"prompt", prompt}, {"srcref", get_srcref(srcref)}}}};
+	json response = {{"type", "prompt"}, {"data", {{"prompt", prompt}, {"srcref", get_srcref(srcref)}}}};
 	push_response( response );
-
-	cout << "waiting on condition (max " << len << ")..." << endl;
 	
 	while( true ){
 	
@@ -111,7 +110,7 @@ int debug_read(const char *prompt, char *buf, int len, int addtohistory){
 		uv_cond_timedwait( &debug_condition, &debug_condition_mutex, CONSOLE_BUFFER_EVENTS_TICK ); 
 
 		std::vector < json > commands;
-		debug_queue.locked_give_all( commands );
+		input_queue.locked_give_all( commands );
 		
 		if( !commands.size()){
 
@@ -124,8 +123,87 @@ int debug_read(const char *prompt, char *buf, int len, int addtohistory){
 		}
 		else {
 
-			cout << "signaled" << endl;
-			
+			for( std::vector< json >::iterator iter = commands.begin(); iter != commands.end(); iter++ ){
+				json &j = *iter;
+				if (j.find("command") != j.end()) {	
+					
+					json response = {{"type", "response"}};
+					std::string cmd = j["command"];
+ 
+					if (j.find("id") != j.end()) {
+						response["id"] = j["id"];
+					}
+								
+					if( !cmd.compare( "rshutdown" )){
+						
+						uv_close( (uv_handle_t*)&async_on_main_loop, NULL );
+						closing_sequence = true;
+						initialized = false;
+						
+						push_response( response );
+						
+						return 0; // this will end the loop
+						
+					}
+					else if( !cmd.compare( "exec" )){
+					
+						// for this version we require single-string exec, but for
+						// legacy reasons we still have a vector coming in
+					
+						if (j.find("commands") != j.end()) {
+							
+							std::ostringstream os;
+							json commands = j["commands"];
+							for( json::iterator iter = commands.begin(); iter != commands.end(); iter++ ){
+								std::string str = iter->get<std::string>();
+								os << str;
+							}
+							
+							std::string command = os.str();
+							len -= 2;
+							if( command.length() < len ) len = command.length();
+							strncpy( buf, command.c_str(), len );
+							buf[len++] = '\n';
+							buf[len++] = '\0';
+							
+							cout << "CMD: " << buf << endl;
+							
+							return len; // just !0
+						}
+					
+					}
+					else if( !cmd.compare( "internal" )){
+						
+						int err = 0;
+						PARSE_STATUS_2 ps = PARSE2_EOF;
+						if (j.find("commands") != j.end()) {
+							
+							std::vector < std::string > strvec;
+							json commands = j["commands"];
+							for( json::iterator iter = commands.begin(); iter != commands.end(); iter++ ){
+								std::string str = iter->get<std::string>();
+								strvec.push_back( str );
+							}
+							
+							json rslt;
+							response["response"] = exec_to_json( rslt, strvec, &err, &ps, false );
+
+						}
+						response["parsestatus"] = ps;
+						if( err ) response["err"] = err;
+						
+					}
+					else {
+						response["err"] = 2;
+						response["message"] = "Unknown command";
+						response["command"] = cmd;
+					}
+					push_response( response );
+				}
+				else cerr << "Unexpected packet\n" << j.dump() << endl;
+			}
+
+			/*			
 			json &j = commands[0];
 			
 			if (j.find("data") != j.end()) {
@@ -161,6 +239,7 @@ int debug_read(const char *prompt, char *buf, int len, int addtohistory){
 				cout << "unknown debug packet type" << endl;
 				return 0;
 			}
+			*/
 		}
 		
 	}
@@ -213,7 +292,7 @@ void write_callback(uv_write_t *req, int status) {
 	
 }
 
-__inline void writeConsoleBuffer(){
+__inline void flushConsoleBuffer(){
 
 	// is there anything on the console buffer?
 	// FIXME: need a better way to test this -- flag?
@@ -232,7 +311,7 @@ __inline void writeConsoleBuffer(){
  * buffered write for console output.  
  */
 void console_timer_callback( uv_timer_t* handle ){
-	writeConsoleBuffer();	
+	flushConsoleBuffer();	
 }
 
 /**
@@ -268,7 +347,7 @@ void async_thread_loop_callback( uv_async_t *handle ){
 	// buffering in some form, we want to make sure this gets
 	// cleared out before any "response" message is sent.
 
-	writeConsoleBuffer();
+	flushConsoleBuffer();
 	
 	for( std::vector< json >::iterator iter = messages.begin();
 			iter != messages.end(); iter++ ){
@@ -291,22 +370,12 @@ void async_main_loop_callback( uv_async_t *handle ){
 			
 		json &j = *iter;
 		if (j.find("command") != j.end()) {
-			processCommand( j );
+			processCommand2( j );
 		}
 		else cout << "command not found" << endl;
 
 	}
 	
-}
-
-/**
- * call process events in R to support threaded operations
- * (like the httpd server) and tcl stuff
- */
-void timer_callback(uv_timer_t *handle){
-	uv_timer_stop( &timer );
-	if( initialized ) r_tick();
-	uv_timer_start(&timer, timer_callback, TIMER_TICK, TIMER_TICK);
 }
 
 /**
@@ -405,7 +474,6 @@ void processCommand( json &j ){
 		
 		// shutdown stuff on the main thread -- timer and async
 		
-		uv_timer_stop( &timer );
 		uv_close( (uv_handle_t*)&async_on_main_loop, NULL );
 		
 		closing_sequence = true;
@@ -432,6 +500,55 @@ void processCommand( json &j ){
 	
 }
 
+/** handle inbound command */
+void processCommand2( json &j ){
+
+	json response = {{"type", "response"}};
+	std::string cmd = j["command"];
+ 
+    if (j.find("id") != j.end()) {
+        response["id"] = j["id"];
+	}
+ 
+	if( !cmd.compare( "rinit" )){
+		
+		std::string rhome;
+		std::string ruser;
+
+		if (j.find("rhome") != j.end()) rhome = j["rhome"].get<std::string>();
+		if (j.find("ruser") != j.end()) ruser = j["ruser"].get<std::string>();
+		
+		char *proc = new char[ arg0.length() + 1 ];
+		char nosave[] = "--no-save";
+		strcpy( proc, arg0.c_str());
+		char* argv[] = { proc, nosave };
+		
+		r_init( rhome.c_str(), ruser.c_str(), 2, argv );
+		delete[] proc;
+		initialized = true;
+
+		push_response( response );
+		
+		// in this version this is going to block here
+		r_loop();
+
+		initialized = false;
+
+		// cleanup stuff here
+	
+	}
+	else {
+		
+		response["err"] = 2;
+		response["message"] = "Unexpected command";
+		response["command"] = cmd;
+		push_response( response );
+		
+	}
+
+	
+}
+
 void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
 
     if (nread < 0) {
@@ -443,27 +560,33 @@ void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
 
 	json j = json::parse(std::string( buf->base, buf->len ));
 
-	// special case: debug packets.  we need to capture and 
-	// process them from this thread 
-	
+	// in the new structure, when R is running everything has 
+	// to get signaled by the condition in the stream loop, 
+	// excep INIT which we handle via async and BREAK which 
+	// we handle directly.
+
 	bool handled = false;
-	
+
 	if (j.find("command") != j.end()) {
 		std::string cmd = j["command"];
-		if( !cmd.compare( "debug" )){
-			
-			cout << "DEBUG PACKET" << endl;
-			debug_queue.locked_push_back(j);
-			uv_cond_signal( &debug_condition );
-			
+		if( !cmd.compare( "rinit" )){
+			command_queue.locked_push_back( j );
+			uv_async_send( &async_on_main_loop );
+			handled = true;
+		}
+		else if( !cmd.compare( "break" )){
+			cout << "BREAK!" << endl;
+			handled = true;
 		}
 	}
 	
-	if( !handled ){
-		command_queue.locked_push_back( j );
-		uv_async_send( &async_on_main_loop );
+	// not handled: signal the condition.
+
+	if( !handled && initialized ){
+		input_queue.locked_push_back(j);
+		uv_cond_signal( &debug_condition );
 	}
-		 
+	
 	free(buf->base);
 }
 
@@ -537,8 +660,6 @@ int main( int argc, char **argv ){
 	i_port = ( argc > 2 ) ? atoi( argv[2] ) : 0;
 	
     uv_thread_create(&thread_id, thread_func, 0);
-	uv_timer_init( loop, &timer );
-	uv_timer_start( &timer, timer_callback, INITIAL_TIMER_TICK, TIMER_TICK );
     	
 	uv_run(loop, UV_RUN_DEFAULT);
 	cout << "main loop complete" << endl;

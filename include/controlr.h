@@ -16,8 +16,6 @@
 #include "controlr_common.h"
 #include "controlr_rinterface.h"
 
-void processCommand( nlohmann::json &j );
-
 class locked_ostringstream : public std::ostringstream {
 public:
 	locked_ostringstream(){

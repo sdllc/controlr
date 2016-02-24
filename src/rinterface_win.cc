@@ -25,8 +25,8 @@
 
 std::string dllpath;
 
-HANDLE muxLog;
-HANDLE muxExecR;
+//HANDLE muxLog;
+//HANDLE muxExecR;
 
 #undef clear
 #undef length
@@ -61,18 +61,13 @@ void log_message(const char *buf, int len = -1, bool console = false ){
 }
 */
 
-
+/**
+ * we're now basing "exec" commands on the standard repl; otherwise 
+ * we have to have two parallel paths for exec and debug.
+ */
 int R_ReadConsole(const char *prompt, char *buf, int len, int addtohistory)
 {
-	std::cout << "READ CONSOLE CALLED" << std::endl;
-	
-	return debug_read( prompt, buf, len, addtohistory );
-	
-	// unless we call one of the repl functions 
-	// this will never get called, so we can ignore it
-	
-	return 0;
-	
+	return input_stream_read( prompt, buf, len, addtohistory );
 }
 
 void R_WriteConsole(const char *buf, int len)
@@ -91,7 +86,6 @@ void myBusy(int which)
 {
 	/* set a busy cursor ... if which = 1, unset if which = 0 */
 	// DebugOut("busy\n");
-	printf(" * myBusy\n");
 }
 
 /** 
@@ -153,27 +147,8 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 		return -1;
 	}
 
-	muxLog = ::CreateMutex(0, 0, 0);
-	muxExecR = ::CreateMutex(0, 0, 0);
-
 	R_setStartTime();
 	R_DefParams(Rp);
-
-/*
-	if (!CRegistryUtils::GetRegExpandString(HKEY_CURRENT_USER, RHome, MAX_PATH - 1, REGISTRY_KEY, REGISTRY_VALUE_R_HOME))
-	{
-		ExpandEnvironmentStringsA(DEFAULT_R_HOME, RHome, MAX_PATH);
-	}
-
-	if (!CRegistryUtils::GetRegExpandString(HKEY_CURRENT_USER, RUser, MAX_PATH - 1, REGISTRY_KEY, REGISTRY_VALUE_R_USER))
-	{
-		ExpandEnvironmentStringsA(DEFAULT_R_USER, RUser, MAX_PATH);
-	}
-	
-	if (!CRegistryUtils::GetRegDWORD(HKEY_CURRENT_USER, &dwPreserve, REGISTRY_KEY, REGISTRY_VALUE_PRESERVE_ENV)) {
-		dwPreserve = DEFAULT_R_PRESERVE_ENV;
-	}
-*/
 
 	Rp->rhome = RHome;
 	Rp->home = RUser;
@@ -199,7 +174,8 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	Rp->YesNoCancel = R_AskYesNoCancel;
 	Rp->Busy = myBusy;
 
-	Rp->R_Quiet = FALSE;// TRUE;        /* Default is FALSE */
+//	Rp->R_Quiet = FALSE;// TRUE;        /* Default is FALSE */
+	Rp->R_Quiet =  TRUE;        /* Default is FALSE */
 
 	Rp->RestoreAction = SA_RESTORE;
 	Rp->SaveAction = SA_NOSAVE;
@@ -219,8 +195,6 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 
 	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
 
-//	signal(SIGBREAK, my_onintr);
-
 	GA_initapp(0, 0);
 	setup_Rmainloop();
 	R_ReplDLLinit();
@@ -233,12 +207,16 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	::ReleaseMutex(muxExecR);
 	*/
 	
-	// load up
-
-	
 	
 	return 0;
 
+}
+
+void r_loop(){
+
+	while(R_ReplDLLdo1() > 0);
+	Rf_endEmbeddedR(0);
+	
 }
 
 void r_shutdown()
@@ -246,9 +224,9 @@ void r_shutdown()
 	char RUser[MAX_PATH];
 	DWORD dwPreserve = 0;
 
-	Rf_endEmbeddedR(0);
-	CloseHandle(muxLog);
-	CloseHandle(muxExecR);
+//	Rf_endEmbeddedR(0); // now called in init (which never exits)
+//	CloseHandle(muxLog);
+//	CloseHandle(muxExecR);
 
 }
 

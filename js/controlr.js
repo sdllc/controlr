@@ -230,10 +230,17 @@ var ControlR = function(){
 	}
 
     var read_callback = function( packet ){
+
         if( packet.type ){
             if( packet.type === "response" ){
                 if( notify ) notify.call( this, packet );
             }
+			else if( packet.type === "prompt" ){
+				
+				// signals the end of an exec
+				if( notify ) notify.call( this, packet );
+				
+			}
             else if( packet.type === "console" ){
 				
 				// unbuffered version.  we're buffering on the 
