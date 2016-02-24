@@ -18,6 +18,38 @@
 
 void processCommand( nlohmann::json &j );
 
+class locked_ostringstream : public std::ostringstream {
+public:
+	locked_ostringstream(){
+		uv_mutex_init( &mutex );
+	}
+
+	~locked_ostringstream(){
+		uv_mutex_destroy( &mutex );
+	}
+
+public:
+	void lock(){
+		uv_mutex_lock( &mutex );
+	}
+
+	void unlock(){
+		uv_mutex_unlock( &mutex );
+	}
+
+	void locked_give( std::string &target ){
+		this->lock();
+		target = this->str();
+		this->str("");
+		this->clear();
+		this->unlock();
+	}
+
+protected:
+	uv_mutex_t mutex;
+};
+
+
 template < class T > class locked_vector : public std::vector < T > {
 public:
 	locked_vector(){
@@ -59,7 +91,6 @@ public:
 	}
 
 protected:
-		
 	uv_mutex_t mutex;
 		
 };

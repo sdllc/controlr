@@ -18,11 +18,21 @@ locked_vector < json > debug_queue;
 uv_async_t async_on_main_loop;
 uv_async_t async_on_thread_loop;
 
-uv_sem_t debug_semaphore;
+uv_timer_t console_buffer_timer;
+
+uv_cond_t debug_condition;
+uv_mutex_t debug_condition_mutex;
 
 // FIXME: tune 
 #define INITIAL_TIMER_TICK 100
 #define TIMER_TICK 100
+
+// FIXME: tune
+// what is the unit? ns?
+#define CONSOLE_BUFFER_EVENTS_TICK (1000 * 1000 * 100)
+
+// FIXME: tune
+#define CONSOLE_BUFFER_TICK 25
 
 bool closing_sequence = false;
 bool initialized = false;
@@ -31,7 +41,7 @@ std::string str_connection;
 int i_port;
 
 std::string arg0;
-std::ostringstream os_buffer;
+locked_ostringstream os_buffer;
 
 // from docs:
 // ...
@@ -85,16 +95,36 @@ int debug_read(const char *prompt, char *buf, int len, int addtohistory){
 	json response = {{"type", "debug"}, {"data", {{"prompt", prompt}, {"srcref", get_srcref(srcref)}}}};
 	push_response( response );
 
-	cout << "waiting on semaphore (max " << len << ")..." << endl;
+	cout << "waiting on condition (max " << len << ")..." << endl;
 	
 	while( true ){
 	
-		uv_sem_wait( &debug_semaphore );
-		cout << "signaled" << endl;
+		// NOTE: from docs:
+		//
+		//   Note Callers should be prepared to deal with spurious 
+		//   wakeups on uv_cond_wait() and uv_cond_timedwait().
+		//
+		// that's from the underlying pthreads implementation.  we need 
+		// a mechanism to determine if that happens.  nevertheless we like 
+		// conditions because there's a wait available with a timeout.
+		
+		uv_cond_timedwait( &debug_condition, &debug_condition_mutex, CONSOLE_BUFFER_EVENTS_TICK ); 
 
 		std::vector < json > commands;
 		debug_queue.locked_give_all( commands );
-		if( commands.size()){
+		
+		if( !commands.size()){
+
+			// if commands is empty, this is either a timeout or one
+			// of the stray signals.  in either case, process events.
+			// this takes the place of the timer, which is blocked.
+			
+			if( initialized ) r_tick();
+			
+		}
+		else {
+
+			cout << "signaled" << endl;
 			
 			json &j = commands[0];
 			
@@ -183,14 +213,63 @@ void write_callback(uv_write_t *req, int status) {
 	
 }
 
+__inline void writeConsoleBuffer(){
+
+	// is there anything on the console buffer?
+	// FIXME: need a better way to test this -- flag?
+
+	std::string s;
+	os_buffer.locked_give(s);
+	
+	if( s.length()){
+		json j = {{"type", "console"}, {"message", s.c_str()}};
+		writeJSON( j, client, write_callback );
+	}
+
+}
+
+/**
+ * buffered write for console output.  
+ */
+void console_timer_callback( uv_timer_t* handle ){
+	writeConsoleBuffer();	
+}
+
 /**
  * this is for the R thread to notify the communications thread,
  * generally outgoing messages
  */
 void async_thread_loop_callback( uv_async_t *handle ){
+
+	// FIXME: we can potentially do some console buffering
+	// here, which would be good on linux with tiny writes.
+	
+	// if there are no formal messages, only console output,
+	// set a timer for [X]ms (like currently done on the js
+	// side) and process the console output in the timer 
+	// callback.
 	
 	std::vector < json > messages;
 	response_queue.locked_give_all(messages);
+	
+	if( messages.size() == 0 ){
+		
+		// presumably that means it's console-only.
+		// FIXME: that might change if we start 
+		// doing debug stuff... 
+		
+		uv_timer_stop( &console_buffer_timer );
+		uv_timer_start( &console_buffer_timer, console_timer_callback, CONSOLE_BUFFER_TICK, 0 );
+		return;
+				
+	}
+
+	// write this FIRST.  that's in the event we bring back 
+	// buffering in some form, we want to make sure this gets
+	// cleared out before any "response" message is sent.
+
+	writeConsoleBuffer();
+	
 	for( std::vector< json >::iterator iter = messages.begin();
 			iter != messages.end(); iter++ ){
 		writeJSON( *iter, client, write_callback );
@@ -225,39 +304,28 @@ void async_main_loop_callback( uv_async_t *handle ){
  * (like the httpd server) and tcl stuff
  */
 void timer_callback(uv_timer_t *handle){
-	
 	uv_timer_stop( &timer );
 	if( initialized ) r_tick();
 	uv_timer_start(&timer, timer_callback, TIMER_TICK, TIMER_TICK);
-
 }
 
 /**
- * output from R, pass to parent process as a formatted object.
- *
- * we experimented with buffering here.  you can't buffer on newlines,
- * as that breaks progress bars (assuming you want to support them).
- * timer- or async-based buffering doesn't work because exec blocks 
- * the event loop (which is sort of what this class is for).
- *
- * threading might be useful here, although R has a problem with 
- * not being in the main thread.
- *
- * current solution is to buffer in the calling process.  this results
- * in a lot of messages from us -> parent, but parent -> ui can reduce
- * message load.
+ * output from R.  write to the output stream; the comms thread 
+ * will construct and send packets, potentially buffering.
  */
 void log_message( const char *buf, int len = -1, bool console = false ){
 
-	json j = {{"type", "console"}, {"message", buf}, {"flag", console}};
-	push_response( j );
+	os_buffer.lock();
+	os_buffer << buf;
+	os_buffer.unlock();
+	uv_async_send( &async_on_thread_loop );
 
 }
 
 /** standard alloc method */
 void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
-  buf->base = (char*)malloc(suggested_size);
-  buf->len = suggested_size;
+	buf->base = (char*)malloc(suggested_size);
+	buf->len = suggested_size;
 }
 
 /** handle inbound command */
@@ -386,7 +454,7 @@ void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
 			
 			cout << "DEBUG PACKET" << endl;
 			debug_queue.locked_push_back(j);
-			uv_sem_post( &debug_semaphore );
+			uv_cond_signal( &debug_condition );
 			
 		}
 	}
@@ -416,6 +484,7 @@ void thread_func( void *data ){
 	
 	uv_loop_init( &threadloop );
 	uv_async_init( &threadloop, &async_on_thread_loop, async_thread_loop_callback );
+	uv_timer_init( &threadloop, &console_buffer_timer );
 
 	uv_connect_t req;
 
@@ -438,8 +507,12 @@ void thread_func( void *data ){
 	
 	cout << "thread loop complete" << endl;
 	uv_loop_close(&threadloop);
-
 	cout << "thread loop closed" << endl;
+
+	uv_close( (uv_handle_t*)&async_on_main_loop, NULL );
+	uv_close( (uv_handle_t*)&console_buffer_timer, NULL );
+
+	cout << "thread proc complete" << endl;
 	
 }
 
@@ -456,7 +529,8 @@ int main( int argc, char **argv ){
 	uv_loop_t *loop = uv_default_loop();
 	uv_async_init( loop, &async_on_main_loop, async_main_loop_callback );
 
-	uv_sem_init( &debug_semaphore, 0 );
+	uv_mutex_init( &debug_condition_mutex );
+	uv_cond_init( &debug_condition );
 
 	uv_thread_t thread_id;
 	str_connection = argv[1];
@@ -472,7 +546,7 @@ int main( int argc, char **argv ){
 	uv_thread_join( &thread_id );
 	cout << "thread exited" << endl;
 	
-	uv_sem_destroy( &debug_semaphore );
+	uv_cond_destroy( &debug_condition );
 	
 	cout << "process exit" << endl << flush;
 

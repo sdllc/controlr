@@ -47,6 +47,14 @@ void r_tick()
 	// ?? // R_ProcessEvents();
 }
 
+int R_ReadConsole( const char * prompt, unsigned char *buf, int len, int addtohistory){
+
+	std::cout << "READ CONSOLE CALLED" << std::endl;
+	return debug_read( prompt, (char*)buf, len, addtohistory );
+}
+	
+
+
 void R_WriteConsoleEx( const char* message, int len, int status ){
     
     // in an effort to reduce messages, and smooth flow,
@@ -77,8 +85,9 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 
     Rf_initialize_R(argc, (char**)argv);
 
-    ptr_R_WriteConsole = NULL;
-    ptr_R_WriteConsoleEx = R_WriteConsoleEx;
+	ptr_R_WriteConsole = NULL;
+	ptr_R_WriteConsoleEx = R_WriteConsoleEx;
+	ptr_R_ReadConsole = R_ReadConsole;   	
     
     R_Outputfile = NULL;
     R_Consolefile = NULL;
@@ -91,15 +100,13 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	R_RegisterCCallable("ControlR", "CallbackJSON", (DL_FUNC)direct_callback_json);
 	R_RegisterCCallable("ControlR", "CallbackSEXP", (DL_FUNC)direct_callback_sexp);
 
-    printf( "r_init exit\n" );
-    
+    // printf( "r_init exit\n" );
     return 0;
 }
 
 void r_shutdown(){
 
-    printf( "r_shutdown\n" );
-  
+    // printf( "r_shutdown\n" );
     Rf_endEmbeddedR(0);
 
 }

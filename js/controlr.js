@@ -235,10 +235,19 @@ var ControlR = function(){
                 if( notify ) notify.call( this, packet );
             }
             else if( packet.type === "console" ){
-                // instance.emit( 'console', packet.message );
+				
+				// unbuffered version.  we're buffering on the 
+				// child process now, should be sufficient, although
+				// we can turn this on again if necessary.
+
+                instance.emit( 'console', packet.message );
+				
+				// buffered
+				/*
 				if( interval ) clearTimeout( interval );
 				console_buffer += packet.message;
 				interval = setTimeout( flush_console, 50 );
+				*/
             }
 			else if( packet.type === "graphics" 
 						|| packet.type === "system"  
@@ -484,8 +493,21 @@ var ControlR = function(){
 		});
 
 		// then create the child
-		//start_child_process( opts, [socket_file] );
-		start_child_process( opts, args );
+		var proc = start_child_process( opts, args );
+
+		// originally we just looked at the streams for debug.  however it turns
+		// out that, at least on linux, some useful information is dumped here --
+		// in particular, build commands when installing packages.  so we probably
+		// need to keep it.  note that this will definitely not work for remote
+		// processes, unless we send it explicitly.  but ok for now.
+		
+		proc.stdout.on('data', (data) => {
+            instance.emit( 'r.stdout', data );
+        });
+
+        proc.stderr.on('data', (data) => {
+            instance.emit( 'r.stderr', data );
+        });
 
 	 };
 	 
