@@ -38,24 +38,24 @@ public:
 	}
 
 	void locked_push_back(T elem){
-		lock();
-		push_back(elem);
-		unlock();
+		this->lock();
+		this->push_back(elem);
+		this->unlock();
 	}
 
 	size_t locked_size(){
 		size_t count;
-		lock();
-		count = size();
-		unlock();
+		this->lock();
+		count = this->size();
+		this->unlock();
 		return count;
 	}
 
 	void locked_give_all( std::vector < T > &target ){
-		lock();
+		this->lock();
 		target = (std::vector<T>)(*this);
-		clear();
-		unlock();	
+		this->clear();
+		this->unlock();	
 	}
 
 protected:
