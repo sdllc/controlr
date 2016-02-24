@@ -2,10 +2,7 @@
 #include "controlr.h"
 
 using namespace std;
-
 using json = nlohmann::json;
-
-uv_loop_t *loop;
 
 uv_pipe_t _pipe;
 uv_tcp_t _tcp;
@@ -13,8 +10,15 @@ uv_tcp_t _tcp;
 uv_stream_t *client;
 
 uv_timer_t timer;
-uv_async_t async;
-uv_mutex_t async_mutex;
+
+locked_vector < json > command_queue;
+locked_vector < json > response_queue;
+locked_vector < json > debug_queue;
+
+uv_async_t async_on_main_loop;
+uv_async_t async_on_thread_loop;
+
+uv_sem_t debug_semaphore;
 
 // FIXME: tune 
 #define INITIAL_TIMER_TICK 100
@@ -23,9 +27,11 @@ uv_mutex_t async_mutex;
 bool closing_sequence = false;
 bool initialized = false;
 
+std::string str_connection;
+int i_port;
+
 std::string arg0;
 std::ostringstream os_buffer;
-
 
 // from docs:
 // ...
@@ -37,10 +43,14 @@ std::ostringstream os_buffer;
 // ...
 // so in other words, don't use the data field of the async handle.
 
-typedef std::vector< std::string > STRVECTOR;
-STRVECTOR async_data;
-
 void write_callback(uv_write_t *req, int status) ;
+
+__inline void push_response( json &j ){
+	
+	response_queue.locked_push_back( j );
+	uv_async_send( &async_on_thread_loop );
+
+}
 
 /** 
  * write a packet plus a newline (which we use as a separator) 
@@ -69,6 +79,67 @@ __inline void writeJSON( json &j, uv_stream_t* client, uv_write_cb cb, std::vect
 	
 }
 
+int debug_read(const char *prompt, char *buf, int len, int addtohistory){
+
+	json srcref;
+	json response = {{"type", "debug"}, {"data", {{"prompt", prompt}, {"srcref", get_srcref(srcref)}}}};
+	push_response( response );
+
+	cout << "waiting on semaphore (max " << len << ")..." << endl;
+	
+	while( true ){
+	
+		uv_sem_wait( &debug_semaphore );
+		cout << "signaled" << endl;
+
+		std::vector < json > commands;
+		debug_queue.locked_give_all( commands );
+		if( commands.size()){
+			
+			json &j = commands[0];
+			
+			if (j.find("data") != j.end()) {
+				std::string data = j["data"];
+				cout << "DATA: * " << data << endl;
+				len -= 2;
+				if( data.length() < len ) len = data.length();
+				strncpy( buf, data.c_str(), len );
+				buf[len++] = '\n';
+				buf[len++] = '\0';
+				return len + 1;
+			}
+			else if( j.find( "internal" ) != j.end()){
+
+				std::vector < std::string > strvec;
+				json commands = j["internal"];
+				for( json::iterator iter = commands.begin(); iter != commands.end(); iter++ ){
+					std::string str = iter->get<std::string>();
+					strvec.push_back( str );
+				}
+			
+				int err;
+				PARSE_STATUS_2 ps;
+				json rslt;
+				
+				exec_to_json( rslt, strvec, &err, &ps, false );
+				
+				json response = {{"type", "debug"}, {"data", {{"response", rslt}}}};
+				push_response( response );
+				
+			}
+			else {
+				cout << "unknown debug packet type" << endl;
+				return 0;
+			}
+		}
+		
+	}
+	
+	return 0;
+	
+}
+
+
 /** callback from R */
 void direct_callback( const char *channel, const char *data ){
 	
@@ -78,41 +149,13 @@ void direct_callback( const char *channel, const char *data ){
 	try {		
 		json j = json::parse(data);
 		json response = {{"type", channel}, {"data", j}};
-		if( uv_is_writable( client ))
-			writeJSON( response, client, write_callback);
-        else cout << " ** WARNING: not writable" << endl;	
+		push_response( response );
 	}
 	catch( ... ){
 		cout << "JSON parse exception (unknown)" << endl;
 		cout << data << endl;
 	}
 		
-}
-
-/**
- * this function is called by R when R code calls into the
- * exe via .Call.  we need to get onto the appropriate thread
- * and then send the message [NOTE: we are on the right thread,
- * all this async business is unecessary].
- */
-void external_callback( json &j ){
-	
-	/*
-	std::string s = j.dump(); 
-	uv_mutex_lock(&async_mutex);
-	async_data.push_back(s);
-	uv_mutex_unlock(&async_mutex);
-	uv_async_send(&async);
-	*/
-	
-	// we are on the right thread!
-
-	if( uv_is_writable( client )){
-		json msg = {{"type", "callback"}, {"data", j}};
-			writeJSON( msg, client, write_callback);
-	}	
-    else cout << " ** WARNING: not writable" << endl;	
-	
 }
 
 /** 
@@ -132,42 +175,48 @@ void write_callback(uv_write_t *req, int status) {
 	free(req);
 	
 	if( closing_sequence ){
+		cout << "closing handles in write callback -- neat" << endl;
+		
 		uv_close( (uv_handle_t*)client, NULL );
+		uv_close( (uv_handle_t*)&async_on_thread_loop, NULL );
 	}
 	
 }
 
 /**
- * on the correct thread 
+ * this is for the R thread to notify the communications thread,
+ * generally outgoing messages
  */
-void async_callback( uv_async_t *handle ){
-
-	std::string str = os_buffer.str();
-	if( str.length()){
-		json j = {{"type", "console"}, {"message", os_buffer.str()}, {"flag", false}};
-		writeJSON( j, client, write_callback);
-		os_buffer.str("");
-		os_buffer.clear();
+void async_thread_loop_callback( uv_async_t *handle ){
+	
+	std::vector < json > messages;
+	response_queue.locked_give_all(messages);
+	for( std::vector< json >::iterator iter = messages.begin();
+			iter != messages.end(); iter++ ){
+		writeJSON( *iter, client, write_callback );
 	}
+	
+}
 
-	/*
-	STRVECTOR vector;
+/**
+ * this is for the communications thread to notify the R thread,
+ * incoming messages and control packets
+ */
+void async_main_loop_callback( uv_async_t *handle ){
+	
+	std::vector < json > commands;
+	command_queue.locked_give_all( commands );
 
-	uv_mutex_lock(&async_mutex);
-	for( STRVECTOR::iterator iter = async_data.begin(); iter != async_data.end(); iter++ ){
-		vector.push_back(*iter);
+	for( std::vector< json >::iterator iter = commands.begin();
+		iter != commands.end(); iter++ ){
+			
+		json &j = *iter;
+		if (j.find("command") != j.end()) {
+			processCommand( j );
+		}
+		else cout << "command not found" << endl;
+
 	}
-	async_data.clear();
-	uv_mutex_unlock(&async_mutex);
-
-	for( STRVECTOR::iterator iter = vector.begin(); iter != vector.end(); iter++ ){
-		// there's an unnecessary parse/unparse step here
-		json data = json::parse(*iter);
-		cout << *iter << endl;
-		json j = {{"type", "callback"}, {"data", data}};
-		writeJSON( j, client, write_callback);
-	}
-	*/
 	
 }
 
@@ -179,8 +228,8 @@ void timer_callback(uv_timer_t *handle){
 	
 	uv_timer_stop( &timer );
 	if( initialized ) r_tick();
-	
 	uv_timer_start(&timer, timer_callback, TIMER_TICK, TIMER_TICK);
+
 }
 
 /**
@@ -201,7 +250,7 @@ void timer_callback(uv_timer_t *handle){
 void log_message( const char *buf, int len = -1, bool console = false ){
 
 	json j = {{"type", "console"}, {"message", buf}, {"flag", console}};
-	writeJSON( j, client, write_callback);
+	push_response( j );
 
 }
 
@@ -286,10 +335,20 @@ void processCommand( json &j ){
 	}
 	else if( !cmd.compare( "rshutdown" )){
 		
+		// shutdown stuff on the main thread -- timer and async
+		
 		uv_timer_stop( &timer );
+		uv_close( (uv_handle_t*)&async_on_main_loop, NULL );
+		
 		closing_sequence = true;
 		initialized = false;
-		uv_close( (uv_handle_t*)&async, NULL );
+
+		// notify the thread.  it will shut down on write
+		// (actually this isn't necessary, it will get notified
+		// when the response is written).
+		
+		// uv_async_send( &async_on_thread_loop );
+		
 		r_shutdown();
 
 	}
@@ -301,11 +360,7 @@ void processCommand( json &j ){
 		
 	}
 
-	writeJSON( response, client, write_callback);
-
-	//if( !closing_sequence )
-	//	uv_timer_start(&timer, timer_callback, TIMER_TICK, TIMER_TICK);
-
+	push_response( response );
 	
 }
 
@@ -319,27 +374,76 @@ void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
     }
 
 	json j = json::parse(std::string( buf->base, buf->len ));
+
+	// special case: debug packets.  we need to capture and 
+	// process them from this thread 
+	
+	bool handled = false;
+	
 	if (j.find("command") != j.end()) {
-		processCommand( j );
+		std::string cmd = j["command"];
+		if( !cmd.compare( "debug" )){
+			
+			cout << "DEBUG PACKET" << endl;
+			debug_queue.locked_push_back(j);
+			uv_sem_post( &debug_semaphore );
+			
+		}
 	}
-	else cout << "command not found" << endl;
-	 
+	
+	if( !handled ){
+		command_queue.locked_push_back( j );
+		uv_async_send( &async_on_main_loop );
+	}
+		 
 	free(buf->base);
 }
 
 void connect_cb(uv_connect_t* req, int status){
-
+	
 	if( !status ){
 		if( uv_is_readable( client )){
+			cout << "calling read start" << endl;
 			uv_read_start( client, alloc_buffer, read_cb );
 		}
 		else cout <<"client not readable!" << endl;
 	}
 }
 
-int main( int argc, char **argv ){
+void thread_func( void *data ){
+	
+	uv_loop_t threadloop;
+	
+	uv_loop_init( &threadloop );
+	uv_async_init( &threadloop, &async_on_thread_loop, async_thread_loop_callback );
 
-	// TODO: support tcp sockets as well 
+	uv_connect_t req;
+
+	if( i_port ){
+		uv_tcp_init(&threadloop, &_tcp);
+		client = (uv_stream_t*)&_tcp;
+		struct sockaddr_in dest;
+		uv_ip4_addr( str_connection.c_str(), i_port, &dest);
+		uv_tcp_connect( &req, &_tcp, (const struct sockaddr*)&dest, connect_cb);
+	}
+	else {
+		client = (uv_stream_t*)&_pipe;
+		uv_pipe_init( &threadloop, &_pipe, 0 );
+		cout << "calling connect: pipe " << str_connection.c_str() << endl;
+		uv_pipe_connect( &req, &_pipe, str_connection.c_str(), connect_cb);
+	}
+		
+	cout << "running loop" << endl;
+	uv_run( &threadloop, UV_RUN_DEFAULT );
+	
+	cout << "thread loop complete" << endl;
+	uv_loop_close(&threadloop);
+
+	cout << "thread loop closed" << endl;
+	
+}
+
+int main( int argc, char **argv ){
 
 	if( argc <= 1 )
 	{
@@ -349,36 +453,29 @@ int main( int argc, char **argv ){
 
 	arg0 = argv[0];
 
-	loop = uv_default_loop();
-	
-	uv_connect_t req;
+	uv_loop_t *loop = uv_default_loop();
+	uv_async_init( loop, &async_on_main_loop, async_main_loop_callback );
 
-	uv_mutex_init( &async_mutex );
+	uv_sem_init( &debug_semaphore, 0 );
+
+	uv_thread_t thread_id;
+	str_connection = argv[1];
+	i_port = ( argc > 2 ) ? atoi( argv[2] ) : 0;
+	
+    uv_thread_create(&thread_id, thread_func, 0);
 	uv_timer_init( loop, &timer );
 	uv_timer_start( &timer, timer_callback, INITIAL_TIMER_TICK, TIMER_TICK );
-	uv_async_init( loop, &async, async_callback );
-
-	if( argc > 2 ){
-		// cout << "connecting tcp: " << argv[1] << ":" << atoi(argv[2]) << endl;
-		uv_tcp_init(loop, &_tcp);
-		client = (uv_stream_t*)&_tcp;
-		struct sockaddr_in dest;
-		uv_ip4_addr( argv[1], atoi( argv[2] ), &dest);
-		uv_tcp_connect( &req, &_tcp, (const struct sockaddr*)&dest, connect_cb);
-	}
-	else {
-		// cout << "connecting pipe" << endl;
-		client = (uv_stream_t*)&_pipe;
-		uv_pipe_init(loop, &_pipe, 0 /* ipc */);
-		uv_pipe_connect( &req, &_pipe, argv[1], connect_cb);
-	}	
-
-	return uv_run(loop, UV_RUN_DEFAULT);
+    	
+	uv_run(loop, UV_RUN_DEFAULT);
+	cout << "main loop complete" << endl;
 	
-	// clean up
-	uv_mutex_destroy(&async_mutex);
+	uv_thread_join( &thread_id );
+	cout << "thread exited" << endl;
 	
-	// cout << "process exit" << endl << flush;
+	uv_sem_destroy( &debug_semaphore );
+	
+	cout << "process exit" << endl << flush;
 
+	return 0;
 }
 

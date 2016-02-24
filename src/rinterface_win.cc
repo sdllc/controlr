@@ -64,6 +64,10 @@ void log_message(const char *buf, int len = -1, bool console = false ){
 
 int R_ReadConsole(const char *prompt, char *buf, int len, int addtohistory)
 {
+	std::cout << "READ CONSOLE CALLED" << std::endl;
+	
+	return debug_read( prompt, buf, len, addtohistory );
+	
 	// unless we call one of the repl functions 
 	// this will never get called, so we can ignore it
 	
@@ -253,7 +257,7 @@ void r_tick()
 	R_ProcessEvents();
 }
 
-
+/*
 #ifdef WIN32
 
 extern void external_callback( nlohmann::json &json );
@@ -276,3 +280,4 @@ extern "C" {
 }
 
 #endif
+*/

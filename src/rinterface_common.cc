@@ -212,7 +212,7 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 	int len = Rf_length(sexp);
 	int type = TYPEOF(sexp);
 
-	// std::cout << "TYPE " << type << std::endl;
+	// std::cout << "SEXP2JSON: type " << type << ", len " << len << std::endl;
 	
 	// FIXME: there's starting to be a lot of repeated code here...
 
@@ -590,6 +590,11 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 	
 	return json;
 	
+}
+
+nlohmann::json& get_srcref( nlohmann::json &srcref ){
+	SEXP2JSON( R_Srcref, srcref );
+	return srcref;
 }
 
 nlohmann::json& exec_to_json( nlohmann::json &result, 

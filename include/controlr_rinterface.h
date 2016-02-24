@@ -13,6 +13,8 @@
 #include "controlr_common.h"
 #include "3dparty/json.hpp"
 
+extern int debug_read(const char *prompt, char *buf, int len, int addtohistory);
+
 void r_exec_vector(std::vector<std::string> &vec, int *err, PARSE_STATUS_2 *status, bool printResult, bool excludeFromHistory);
 void r_set_user_break( const char *msg = 0 );
 
@@ -20,6 +22,8 @@ void r_tick();
 
 nlohmann::json& exec_to_json( nlohmann::json &result, 
 	std::vector< std::string > &vec, int *err = 0, PARSE_STATUS_2 *ps = 0, bool withVisible = false );
+	
+nlohmann::json& get_srcref( nlohmann::json &srcref ); 
 	
 int r_init( const char *rhome, const char *ruser, int argc, char **argv );
 

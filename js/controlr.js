@@ -184,6 +184,8 @@ var ControlR = function(){
     var socket = null;
     var server = null;
 
+	var debug_op_pending = false;
+
 	/** 
 	 * command queue for tolling commands while busy.  use sparingly.
 	 */
@@ -253,6 +255,12 @@ var ControlR = function(){
 				instance.emit( packet.type, packet.data );
 					
 			}
+			else if( packet.type === "debug" ){
+				
+				console.info( "debug packet", packet );
+				debug_op_pending = true;
+				
+			}
 			else console.info( "unexpected packet type", packet );
         }
 		  else console.info( "Packet missing type", packet );
@@ -309,8 +317,8 @@ var ControlR = function(){
         });
     };
 
-	 /** get state */
-	 this.busy = function(){ return busy; }
+	/** get state */
+	this.busy = function(){ return busy; }
 
     /** execute a command.  any output will print to the console */
     this.exec = function( cmds ){
@@ -325,6 +333,20 @@ var ControlR = function(){
            command: 'internal', commands: cmds 
         });
     };
+
+	this.debug_command = function( data ){
+		if( debug_op_pending ){
+			debug_op_pending = false;
+			write_packet( socket, { command: 'debug', data: data } );
+		}
+	};
+	
+	this.debug_internal = function( commands ){
+		if( debug_op_pending ){
+			debug_op_pending = false;
+			write_packet( socket, { command: 'debug', internal: commands } );
+		}
+	};
 
 	/** 
 	 * execute a command or, if busy, queue it up for execution.
