@@ -237,9 +237,13 @@ var ControlR = function(){
             }
 			else if( packet.type === "prompt" ){
 				
-				console.info( "** prompt ", packet );
+				// console.info( "** prompt ", packet );
 				
-				// signals the end of an exec
+				// signals the end of an exec.  
+				
+				// FIXME: split notify callbacks for exec and 
+				// internal, otherwise they'll get crossed in debug ops
+
 				if( notify ) notify.call( this, packet );
 				
 			}
