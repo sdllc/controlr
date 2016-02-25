@@ -370,8 +370,13 @@ void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
 			handled = true;
 		}
 		else if( !cmd.compare( "break" )){
-			cout << "BREAK!" << endl;
+			
 			handled = true;
+			r_set_user_break();
+			
+			// response? watch out for overlaps... this needs a special 
+			// response class (if we want to respond).
+			
 		}
 	}
 	

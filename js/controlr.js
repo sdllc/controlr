@@ -357,6 +357,13 @@ var ControlR = function(){
         });
     };
 
+	/**
+	 * send break
+	 */
+	this.send_break = function(msg){
+		write_packet( socket, { command: 'break', msg: msg });
+	};
+
 	this.debug_command = function( data ){
 		if( debug_op_pending ){
 			debug_op_pending = false;

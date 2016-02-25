@@ -24,18 +24,15 @@
 #include <R_ext\Parse.h>
 #include <R_ext\Rdynload.h>
 
-std::string dllpath;
-
-//HANDLE muxLog;
-//HANDLE muxExecR;
-
 #undef clear
 #undef length
 
 extern "C" {
 
+// instead of the "dlldo1" loop -- this one seems to be stable in setjmp/longjmp call
 extern void Rf_mainloop(void);
 
+// in case we want to call these programatically (TODO)
 extern void R_RestoreGlobalEnvFromFile(const char *, Rboolean);
 extern void R_SaveGlobalEnvToFile(const char *);
 extern void R_ProcessEvents(void);
@@ -46,18 +43,6 @@ extern void log_message( const char *buf, int len = -1, bool console = false );
 
 extern void direct_callback_json( const char *channel, const char *json );
 extern void direct_callback_sexp( const char *channel, SEXP sexp );
-
-
-SEXP exec_r(std::vector< std::string > &vec, int *err = 0, ParseStatus *pStatus = 0, bool printResult = false );
-
-
-/*
-void log_message(const char *buf, int len = -1, bool console = false ){
-	
-	std::cout << "LM " << buf << std::endl;
-	
-}
-*/
 
 /**
  * we're now basing "exec" commands on the standard repl; otherwise 
@@ -95,28 +80,24 @@ void myBusy(int which)
  * "ask ok" has no return value.
  */
 void R_AskOk(const char *info) {
-	
 	::MessageBoxA(0, info, "Message from R", MB_OK);
-
 }
 
 /** 
  * 1 (yes) or -1 (no), I believe (based on #defines)
  */
 int R_AskYesNoCancel(const char *question) {
-
 	return (IDYES == ::MessageBoxA(0, question, "Message from R", MB_YESNOCANCEL)) ? 1 : -1;
-
 }
 
 static void my_onintr(int sig) { 
-	
+
 	UserBreak = 1; 
 }
 
-
-
 void r_set_user_break( const char *msg ) {
+
+	std::cout << "r_set_user_break" << std::endl;
 
 	// FIXME: synchronize (actually that's probably not helpful, unless we
 	// can synchronize with whatever is clearing it inside R, which we can't)
@@ -154,20 +135,9 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	Rp->rhome = RHome;
 	Rp->home = RUser;
 
-	/////
-	/*
-	 printf( "R_Quiet? %s\n", Rp->R_Quiet ? "true" : "false" );
-	 printf( "R_Slave? %s\n", Rp->R_Slave ? "true" : "false" );
-	 printf( "R_Interactive? %s\n", Rp->R_Interactive ? "true" : "false" );
-	 printf( "R_Verbose? %s\n", Rp->R_Verbose ? "true" : "false" );
-	*/
-	
-	/////
-
 	// typedef enum {RGui, RTerm, LinkDLL} UImode;
 	Rp->CharacterMode = LinkDLL;
 	Rp->R_Interactive = TRUE;
-	//Rp->CharacterMode = RGui;
 	
 	Rp->ReadConsole = R_ReadConsole;
 	Rp->WriteConsole = R_WriteConsole;
@@ -180,6 +150,14 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 
 	Rp->RestoreAction = SA_RESTORE;
 	Rp->SaveAction = SA_NOSAVE;
+	
+	/*
+	 printf( "R_Quiet? %s\n", Rp->R_Quiet ? "true" : "false" );
+	 printf( "R_Slave? %s\n", Rp->R_Slave ? "true" : "false" );
+	 printf( "R_Interactive? %s\n", Rp->R_Interactive ? "true" : "false" );
+	 printf( "R_Verbose? %s\n", Rp->R_Verbose ? "true" : "false" );
+	 fflush(0);
+	*/
 	
 	R_SetParams(Rp);
 	R_set_command_line_arguments(0, 0);
