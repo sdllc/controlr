@@ -92,6 +92,8 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory 
 	json response = {{"type", "prompt"}, {"data", {{"prompt", prompt}, {"srcref", get_srcref(srcref)}}}};
 	push_response( response );
 	
+	cout << "(PROMPT: " << prompt << ")" << endl;
+	
 	while( true ){
 	
 		// NOTE: from docs:

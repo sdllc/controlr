@@ -237,6 +237,8 @@ var ControlR = function(){
             }
 			else if( packet.type === "prompt" ){
 				
+				console.info( "** prompt ", packet );
+				
 				// signals the end of an exec
 				if( notify ) notify.call( this, packet );
 				

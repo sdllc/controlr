@@ -86,19 +86,19 @@ void R_WriteConsoleEx( const char* message, int len, int status ){
 }
 
 void R_FlushConsole(){
-	std::cout << "RFC" << std::endl;
+	// std::cout << "RFC" << std::endl;
 }
 
 void R_ClearErrConsole(){
-	std::cout << "RCEC" << std::endl;
+	// std::cout << "RCEC" << std::endl;
 }
 
 void R_ResetConsole(){
-	std::cout << "RRC" << std::endl;
+	// std::cout << "RRC" << std::endl;
 }
 
 void R_ProcessEvents(){
-	std::cout << "RPE" << std::endl;
+	// std::cout << "RPE" << std::endl;
 }
 
 int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
@@ -112,12 +112,11 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	ptr_R_WriteConsole = NULL;
 	ptr_R_WriteConsoleEx = R_WriteConsoleEx;
 	ptr_R_ReadConsole = R_ReadConsole;   	
-    ptr_R_ShowMessage = R_ShowMessage;
+    ptr_R_ShowMessage = R_ShowMessage; // ??
 		
-	ptr_R_ResetConsole = R_ResetConsole;
-	ptr_R_FlushConsole = R_FlushConsole;
-	ptr_R_ClearerrConsole = R_ClearErrConsole;
-
+//	ptr_R_ResetConsole = R_ResetConsole;
+//	ptr_R_FlushConsole = R_FlushConsole;
+//	ptr_R_ClearerrConsole = R_ClearErrConsole;
 //	ptr_R_ProcessEvents = R_ProcessEvents;
 
     R_Outputfile = NULL;
