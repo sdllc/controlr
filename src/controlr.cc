@@ -248,7 +248,7 @@ void write_callback(uv_write_t *req, int status) {
 	free(req);
 	
 	if( closing_sequence ){
-		cout << "closing handles in write callback -- neat" << endl;
+		cout << "closing handles in write callback" << endl;
 		
 		uv_close( (uv_handle_t*)client, NULL );
 		uv_close( (uv_handle_t*)&async_on_thread_loop, NULL );
@@ -415,11 +415,9 @@ void thread_func( void *data ){
 	else {
 		client = (uv_stream_t*)&_pipe;
 		uv_pipe_init( &threadloop, &_pipe, 0 );
-		cout << "calling connect: pipe " << str_connection.c_str() << endl;
 		uv_pipe_connect( &req, &_pipe, str_connection.c_str(), connect_cb);
 	}
 		
-	cout << "running loop" << endl;
 	uv_run( &threadloop, UV_RUN_DEFAULT );
 	
 	cout << "thread loop complete" << endl;
@@ -441,7 +439,7 @@ int main( int argc, char **argv ){
 	}
 
 	uv_mutex_init( &input_condition_mutex );
-	uv_cond_init( &input_condition );
+	uv_cond_init( &input_condition ); 
 
 	uv_thread_t thread_id;
 	str_connection = argv[1];
@@ -451,19 +449,13 @@ int main( int argc, char **argv ){
 	uv_mutex_init( &init_condition_mutex );
 	
     uv_thread_create(&thread_id, thread_func, 0);
-    	
-//	uv_run(loop, UV_RUN_DEFAULT);
-//	cout << "main loop complete" << endl;
 	
-	cout << "waiting on condition..." << endl;
 	std::vector< json > commands;
 	while( true ){
 		uv_cond_wait( &init_condition, &init_condition_mutex );	
 		command_queue.locked_give_all( commands );
 		if( commands.size() > 0 ) break;
 	}
-	
-	cout << "condition set..." << endl;
 	
 	json j = commands[0];
 	if( j.find( "command" ) != j.end()){
@@ -486,7 +478,6 @@ int main( int argc, char **argv ){
 	cout << "thread exited" << endl;
 	
 	uv_cond_destroy( &input_condition );
-	
 	cout << "process exit" << endl << flush;
 
 	return 0;

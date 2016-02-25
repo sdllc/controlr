@@ -12,6 +12,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <exception>
 
 // #define USE_RINTERNALS
 
@@ -31,10 +32,9 @@ std::string dllpath;
 #undef clear
 #undef length
 
-//
-// for whatever reason these are not exposed in the embedded headers.
-//
 extern "C" {
+
+extern void Rf_mainloop(void);
 
 extern void R_RestoreGlobalEnvFromFile(const char *, Rboolean);
 extern void R_SaveGlobalEnvToFile(const char *);
@@ -42,8 +42,6 @@ extern void R_ProcessEvents(void);
 
 }
 
-extern void RibbonClearUserButtons();
-extern void RibbonAddUserButton(std::string &strLabel, std::string &strFunc, std::string &strImgMso);
 extern void log_message( const char *buf, int len = -1, bool console = false );
 
 extern void direct_callback_json( const char *channel, const char *json );
@@ -67,6 +65,14 @@ void log_message(const char *buf, int len = -1, bool console = false ){
  */
 int R_ReadConsole(const char *prompt, char *buf, int len, int addtohistory)
 {
+	static bool final_init = false;
+	
+	if( !final_init ){
+		final_init = true;
+		R_RegisterCCallable("ControlR", "CallbackJSON", (DL_FUNC)direct_callback_json);
+		R_RegisterCCallable("ControlR", "CallbackSEXP", (DL_FUNC)direct_callback_sexp);
+	}
+	
 	return input_stream_read( prompt, buf, len, addtohistory );
 }
 
@@ -77,15 +83,12 @@ void R_WriteConsole(const char *buf, int len)
 
 void R_CallBack(void)
 {
-	/* called during i/o, eval, graphics in ProcessEvents */
-	// DebugOut("R_CallBack\n");
-	// printf(" * R_CallBack\n");
+	// std::cout << "callback" << std::endl;
 }
 
 void myBusy(int which)
 {
-	/* set a busy cursor ... if which = 1, unset if which = 0 */
-	// DebugOut("busy\n");
+	// std::cout << "busy: " << which << std::endl;
 }
 
 /** 
@@ -107,8 +110,6 @@ int R_AskYesNoCancel(const char *question) {
 }
 
 static void my_onintr(int sig) { 
-	
-	std::cout << "EAT SIGNALS" << std::endl;
 	
 	UserBreak = 1; 
 }
@@ -165,6 +166,7 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 
 	// typedef enum {RGui, RTerm, LinkDLL} UImode;
 	Rp->CharacterMode = LinkDLL;
+	Rp->R_Interactive = TRUE;
 	//Rp->CharacterMode = RGui;
 	
 	Rp->ReadConsole = R_ReadConsole;
@@ -175,55 +177,24 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	Rp->Busy = myBusy;
 
 //	Rp->R_Quiet = FALSE;// TRUE;        /* Default is FALSE */
-	Rp->R_Quiet =  TRUE;        /* Default is FALSE */
 
 	Rp->RestoreAction = SA_RESTORE;
 	Rp->SaveAction = SA_NOSAVE;
 	
-	/*
-	
-	printf( "R_Quiet? %s\n", Rp->R_Quiet ? "true" : "false" );
-	printf( "R_Slave? %s\n", Rp->R_Slave ? "true" : "false" );
-	printf( "R_Interactive? %s\n", Rp->R_Interactive ? "true" : "false" );
-	printf( "R_Verbose? %s\n", Rp->R_Verbose ? "true" : "false" );
-	printf( "CharacterMode? %d\n", (int)(Rp->CharacterMode));
-
-	*/
-
 	R_SetParams(Rp);
 	R_set_command_line_arguments(0, 0);
-
 	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
-
 	GA_initapp(0, 0);
-	setup_Rmainloop();
-	R_ReplDLLinit();
-	R_RegisterCCallable("ControlR", "CallbackJSON", (DL_FUNC)direct_callback_json);
-	R_RegisterCCallable("ControlR", "CallbackSEXP", (DL_FUNC)direct_callback_sexp);
 
-	/*
-	::WaitForSingleObject(muxExecR, INFINITE );
-
-	::ReleaseMutex(muxExecR);
-	*/
-	
+	Rf_mainloop();
+	Rf_endEmbeddedR(0);
 	
 	return 0;
 
 }
 
-void r_loop(){
-
-	while(R_ReplDLLdo1() > 0);
-	Rf_endEmbeddedR(0);
-	
-}
-
 void r_shutdown()
 {
-	char RUser[MAX_PATH];
-	DWORD dwPreserve = 0;
-
 //	Rf_endEmbeddedR(0); // now called in init (which never exits)
 //	CloseHandle(muxLog);
 //	CloseHandle(muxExecR);

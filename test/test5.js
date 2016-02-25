@@ -7,15 +7,14 @@ controlr.on('console', function(msg){
 })
 
 controlr.init({
-    rhome: "/home/duncan/dev/R-3.2.3",
-//    rhome: "e:\\editR\\R-3.2.3",
+//    rhome: "/home/duncan/dev/R-3.2.3",
+    rhome: "e:\\editR\\R-3.2.3",
     debug: true
-/*
 }).then( function(a){
 
 	console.info( "setting err");
 	return controlr.exec( "options(error=dump.frames)");
-*/
+	
 }).then( function(a){
 
 	console.info( "executing crap");
