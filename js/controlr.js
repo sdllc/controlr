@@ -237,14 +237,15 @@ var ControlR = function(){
             }
 			else if( packet.type === "prompt" ){
 				
-				// console.info( "** prompt ", packet );
-				
 				// signals the end of an exec.  
 				
 				// FIXME: split notify callbacks for exec and 
-				// internal, otherwise they'll get crossed in debug ops
+				// internal, otherwise they'll get crossed in debug ops <-- ??
 
 				if( notify ) notify.call( this, packet );
+				else {
+					instance.emit( 'system', packet ); // send this to the renderer for possible handling
+				}
 				
 			}
             else if( packet.type === "console" ){
@@ -495,9 +496,9 @@ var ControlR = function(){
 				return exec_packet({
 						command: 'rinit',
 						rhome: opts.rhome || "" });
-			}).then( function(){
+			}).then( function( obj ){
 				if( opts.debug ) console.info( "init complete" ); 
-				resolve(instance);
+				resolve(obj);
 			}).catch( function(e){
 				console.info( "Exception in init", e );
 				reject(e);
