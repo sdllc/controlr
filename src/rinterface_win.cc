@@ -97,8 +97,6 @@ static void my_onintr(int sig) {
 
 void r_set_user_break( const char *msg ) {
 
-	std::cout << "r_set_user_break" << std::endl;
-
 	// FIXME: synchronize (actually that's probably not helpful, unless we
 	// can synchronize with whatever is clearing it inside R, which we can't)
 
