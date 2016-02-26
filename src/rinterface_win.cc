@@ -90,11 +90,6 @@ int R_AskYesNoCancel(const char *question) {
 	return (IDYES == ::MessageBoxA(0, question, "Message from R", MB_YESNOCANCEL)) ? 1 : -1;
 }
 
-static void my_onintr(int sig) { 
-
-	UserBreak = 1; 
-}
-
 void r_set_user_break( const char *msg ) {
 
 	// FIXME: synchronize (actually that's probably not helpful, unless we

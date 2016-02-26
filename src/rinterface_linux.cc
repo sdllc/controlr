@@ -31,6 +31,10 @@
 extern void direct_callback_json( const char *channel, const char *json );
 extern void direct_callback_sexp( const char *channel, SEXP sexp );
 
+extern "C" {
+//	extern void Rf_mainloop(void);
+}
+
 
 #undef length
 
@@ -40,9 +44,17 @@ extern void log_message( const char *buf, int len = -1, bool console = false );
 
 void r_set_user_break( const char *msg ){
     
-}
+	// if you're using pthreads, raise() calls pthread_kill(self), 
+	// so don't use that.  just a heads up.
+	
+	kill( getpid(), SIGINT );	
 
-void flush_log(){}
+	// FIXME: use the flag in log_message here to signal it's a system message
+
+	if( msg ) log_message( msg, 0, 1 );
+	else log_message("user break\n", 0, 1);
+
+}
 
 void r_tick()
 {
@@ -50,11 +62,16 @@ void r_tick()
 }
 
 int R_ReadConsole( const char * prompt, unsigned char *buf, int len, int addtohistory){
-
-	//std::cout << "READ CONSOLE CALLED" << std::endl;
-	//return debug_read( prompt, (char*)buf, len, addtohistory );
-	return input_stream_read( prompt, (char*)buf, len, addtohistory );
 	
+	static bool final_init = false;
+	
+	if( !final_init ){
+		final_init = true;
+		R_RegisterCCallable("ControlR", "CallbackJSON", (DL_FUNC)direct_callback_json);
+		R_RegisterCCallable("ControlR", "CallbackSEXP", (DL_FUNC)direct_callback_sexp);
+	}
+	
+	return input_stream_read( prompt, (char*)buf, len, addtohistory );
 }
 	
 void R_ShowMessage( char *msg ){
@@ -64,42 +81,26 @@ void R_ShowMessage( char *msg ){
 }
 
 void R_WriteConsoleEx( const char* message, int len, int status ){
-    
-    // in an effort to reduce messages, and smooth flow,
-    // we are buffering until there's a newline.
-    
-    // FIXME: use stringstream?
-    /*
-    static std::string buffer;
-    buffer += message;
-    if( len <= 0 ) len = strlen( message );
-    if( len > 0 && message[len-1] == '\n' ){
-       log_message( buffer.c_str(), buffer.length()); 
-       buffer.clear();
-    }
-    else if( len > 0 ){
-		std::cout << "LM| " << message << std::endl;
-	}
-	*/
-    // 
 	log_message( message, len );
 }
 
+/*
 void R_FlushConsole(){
-	// std::cout << "RFC" << std::endl;
+	std::cout << "RFC" << std::endl;
 }
 
 void R_ClearErrConsole(){
-	// std::cout << "RCEC" << std::endl;
+	std::cout << "RCEC" << std::endl;
 }
 
 void R_ResetConsole(){
-	// std::cout << "RRC" << std::endl;
+	std::cout << "RRC" << std::endl;
 }
 
 void R_ProcessEvents(){
-	// std::cout << "RPE" << std::endl;
+	std::cout << "RPE" << std::endl;
 }
+*/
 
 int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 
@@ -123,13 +124,15 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
     R_Consolefile = NULL;
 	R_Interactive = TRUE;
 	
-	setup_Rmainloop();
-	R_ReplDLLinit();
-	R_RegisterCCallable("ControlR", "CallbackJSON", (DL_FUNC)direct_callback_json);
-	R_RegisterCCallable("ControlR", "CallbackSEXP", (DL_FUNC)direct_callback_sexp);
+//	setup_Rmainloop();
+//	R_ReplDLLinit();
+//	R_RegisterCCallable("ControlR", "CallbackJSON", (DL_FUNC)direct_callback_json);
+//	R_RegisterCCallable("ControlR", "CallbackSEXP", (DL_FUNC)direct_callback_sexp);
+//
+//	while(R_ReplDLLdo1() > 0);
+//	Rf_endEmbeddedR(0);
 
-	while(R_ReplDLLdo1() > 0);
-	
+	Rf_mainloop();
 	Rf_endEmbeddedR(0);
 
     // printf( "r_init exit\n" );
