@@ -39,7 +39,7 @@ extern void R_ProcessEvents(void);
 
 }
 
-extern void log_message( const char *buf, int len = -1, bool console = false );
+extern void log_message( const char *buf, int len = -1, int flag = 0 );
 
 extern void direct_callback_json( const char *channel, const char *json );
 extern void direct_callback_sexp( const char *channel, SEXP sexp );
@@ -61,9 +61,9 @@ int R_ReadConsole(const char *prompt, char *buf, int len, int addtohistory)
 	return input_stream_read( prompt, buf, len, addtohistory );
 }
 
-void R_WriteConsole(const char *buf, int len)
+void R_WriteConsoleEx( const char *buf, int len, int flag )
 {
-	log_message(buf, len);
+	log_message(buf, len, flag);
 }
 
 void R_CallBack(void)
@@ -133,7 +133,8 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	Rp->R_Interactive = TRUE;
 	
 	Rp->ReadConsole = R_ReadConsole;
-	Rp->WriteConsole = R_WriteConsole;
+	Rp->WriteConsole = NULL;
+	Rp->WriteConsoleEx = R_WriteConsoleEx;
 	Rp->CallBack = R_CallBack;
 	Rp->ShowMessage = R_AskOk;
 	Rp->YesNoCancel = R_AskYesNoCancel;
