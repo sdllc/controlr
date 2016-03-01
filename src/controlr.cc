@@ -38,6 +38,7 @@ std::string str_connection;
 int i_port;
 
 locked_ostringstream os_buffer;
+locked_ostringstream os_buffer_err;
 
 
 // from docs:
@@ -262,10 +263,16 @@ __inline void flushConsoleBuffer(){
 	// FIXME: need a better way to test this -- flag?
 
 	std::string s;
-	os_buffer.locked_give(s);
-	
+
+	os_buffer_err.locked_give(s);
 	if( s.length()){
-		json j = {{"type", "console"}, {"message", s.c_str()}};
+		json j = {{"type", "console"}, {"message", s.c_str()}, {"flag", 1}};
+		writeJSON( j, client, write_callback );
+	}
+
+	os_buffer.locked_give(s);
+	if( s.length()){
+		json j = {{"type", "console"}, {"message", s.c_str()}, {"flag", 0}};
 		writeJSON( j, client, write_callback );
 	}
 
@@ -324,11 +331,19 @@ void async_thread_loop_callback( uv_async_t *handle ){
  * output from R.  write to the output stream; the comms thread 
  * will construct and send packets, potentially buffering.
  */
-void log_message( const char *buf, int len = -1, bool console = false ){
+void log_message( const char *buf, int len = -1, int flag = 0 ){
 
-	os_buffer.lock();
-	os_buffer << buf;
-	os_buffer.unlock();
+	if( flag ){
+		os_buffer_err.lock();
+		os_buffer_err << buf;
+		os_buffer_err.unlock();
+	}
+	else {
+		os_buffer.lock();
+		os_buffer << buf;
+		os_buffer.unlock();
+	}
+	
 	uv_async_send( &async_on_thread_loop );
 
 }

@@ -99,22 +99,22 @@ var create_pipe_name = function(){
 var check_port = function( port, host, count ) {
 	return new Promise( function( resolve, reject ){
 		var testserver = net.createServer()
-				.once('error', function (err) {
-					if( count > 0 ){
-						check_port( port + 1, host, count - 1 ).then( function(x){
-							resolve(x);
-						}).catch(function(e){
-							reject(e);
-						});
-					}
-					//else resolve(false);
-					else reject( "no ports available in range" );
-				})
-				.once('listening', function() {
-					testserver.once('close', function() { resolve(port); })
-					.close()
-				})
-				.listen(port, host);
+			.once('error', function (err) {
+				if( count > 0 ){
+					check_port( port + 1, host, count - 1 ).then( function(x){
+						resolve(x);
+					}).catch(function(e){
+						reject(e);
+					});
+				}
+				//else resolve(false);
+				else reject( "no ports available in range" );
+			})
+			.once('listening', function() {
+				testserver.once('close', function() { resolve(port); })
+				.close()
+			})
+			.listen(port, host);
 	});
 };
 
@@ -253,8 +253,7 @@ var ControlR = function(){
 				// unbuffered version.  we're buffering on the 
 				// child process now, should be sufficient, although
 				// we can turn this on again if necessary.
-
-                instance.emit( 'console', packet.message );
+                instance.emit( 'console', packet.message, packet.flag );
 				
 				// buffered
 				/*
