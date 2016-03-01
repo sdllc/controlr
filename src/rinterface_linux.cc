@@ -32,7 +32,15 @@ extern void direct_callback_json( const char *channel, const char *json );
 extern void direct_callback_sexp( const char *channel, SEXP sexp );
 
 extern "C" {
-//	extern void Rf_mainloop(void);
+	
+	extern void Rf_mainloop(void);
+	extern void R_ProcessEvents();
+	extern void Rsleep(double);
+	
+	extern void R_runHandlers(void *handlers, fd_set *readMask);
+	extern void *R_InputHandlers;
+	extern fd_set *R_checkActivity(int, int);
+
 }
 
 
@@ -58,7 +66,7 @@ void r_set_user_break( const char *msg ){
 
 void r_tick()
 {
-	// ?? // R_ProcessEvents();
+	R_runHandlers(R_InputHandlers, R_checkActivity(0, 0));
 }
 
 int R_ReadConsole( const char * prompt, unsigned char *buf, int len, int addtohistory){
