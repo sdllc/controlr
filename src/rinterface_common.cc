@@ -545,7 +545,10 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 	
 		// single value
 
-		if (isLogical(sexp)) 
+		if( Rf_isNull(sexp)){
+			json = {{"type", "null"}, {"null", true }}; // FIXME: pick one
+		}
+		else if (isLogical(sexp)) 
 		{
 			// it seems wasteful having this first, 
 			// but I think one of the other types is 
@@ -571,8 +574,8 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 		}
 		else if (Rf_isComplex(sexp))
 		{
-			json = "complex";
-			// CPLXSXP2XLOPER(rslt, *(COMPLEX(sexp)));
+			Rcomplex cpx = Rf_asComplex(sexp);
+			json = {{"type", "complex"}, {"r", cpx.r }, {"i", cpx.i}};
 		}
 		else if (Rf_isInteger(sexp))
 		{
@@ -585,6 +588,10 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 		else if (isString(sexp))
 		{
 			json = CHAR(Rf_asChar(sexp));
+		}
+		else {
+			//std::cerr << "unhandled type " << TYPEOF(sexp) << std::endl;
+			json = {{"unparsed", true}, {"type", TYPEOF(sexp)}};
 		}
 	}
 	
