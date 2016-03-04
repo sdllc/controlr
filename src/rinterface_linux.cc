@@ -48,7 +48,7 @@ extern "C" {
 
 // -------------------------------------------------------------
 
-extern void log_message( const char *buf, int len = -1, bool console = false );
+extern void log_message( const char *buf, int len = -1, int flag = 0 );
 
 void r_set_user_break( const char *msg ){
     
