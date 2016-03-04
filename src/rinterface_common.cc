@@ -199,6 +199,15 @@ void r_exec_vector(std::vector<std::string> &vec, int *err, PARSE_STATUS_2 *stat
 
 }
 
+/**
+ * in general, we want to reduce to the appropriate type: boolean, 
+ * number (don't care about int/double), string.  lists are objects
+ * and arrays are arrays.
+ *
+ * where type information is useful, such as in NULL (intrinsic in R)
+ * and complex, we'll include a $type field.  $type is technically a
+ * legal symbol in R, but it should be pretty rare as it's hard to use.
+ */
 nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 
 	json.clear(); // jic
@@ -236,7 +245,8 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 			json["colnames"] = SEXP2JSON( colnames, jcolnames );
 		}
 
-		std::vector< std::vector< nlohmann::json >> cols;
+		//std::vector< std::vector< nlohmann::json >> cols;
+		std::vector< nlohmann::json > cols;
 
 		SEXP strsxp;
 	
@@ -277,13 +287,25 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 				}
 				
 				col.push_back( jval );
-			}
 				
-			nlohmann::json jcol = col;
-			cols.push_back(jcol);
+			}
+
+			if( Rf_isFactor( c )){
+				SEXP levels = Rf_getAttrib(c, R_LevelsSymbol);
+				nlohmann::json jlevels;
+				SEXP2JSON(levels, jlevels);
+				nlohmann::json factor = {{"$type", "factor"}, {"data", col}, {"levels", jlevels}};
+				cols.push_back(factor);
+			}
+			else { 
+				nlohmann::json jcol = col;
+				cols.push_back(jcol);
+			}
+			
 		}
 		
 		json["data"] = cols;
+		json["$type"] = "frame";
 		
 	////////////////////////	
 	
@@ -376,7 +398,8 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 			char buffer[128];
 			std::string strname;
 			SEXP names = PROTECT(getAttrib(sexp, R_NamesSymbol));
-						
+			if( names != R_NilValue ) json["$type"] = "list";
+				
 			for (int c = 0; c < nc; c++)
 			{
 				SEXP v = VECTOR_ELT(sexp, c);
@@ -405,6 +428,7 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 		
 		std::string strname;
 		int err;
+		json["$type"] = "environment";
 		
 		SEXP names = PROTECT(R_tryEval(Rf_lang2(R_NamesSymbol, sexp), R_GlobalEnv, &err));
 		if (!err && names != R_NilValue) {
@@ -448,18 +472,21 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 			nr = Rf_nrows(sexp);
 		}
 
-		std::vector< std::vector< nlohmann::json >> cols;
+	//	std::vector< std::vector< nlohmann::json >> cols;
+		std::vector< nlohmann::json > cols;
 
 		// FIXME: LOOP ON THE INSIDE (CHECK OPTIM)
 
 		int idx = 0;
 		SEXP strsxp;
 		
-		// std::cout << "NR " << nr << ", NC " << nc << std::endl;
+//		std::cout << "NR " << nr << ", NC " << nc << std::endl;
 
 		int err;
 		char buffer[64]; // buffer for $x names
 		SEXP names = PROTECT(R_tryEval(Rf_lang2(R_NamesSymbol, sexp), R_GlobalEnv, &err));
+		
+		if( names != R_NilValue ) json["$type"] = "list";
 		
 		for (int i = 0; i < nc; i++)
 		{
@@ -512,10 +539,19 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 				}
 				
 			}
+		
+			if( Rf_isFactor(sexp)){
+				SEXP levels = Rf_getAttrib(sexp, R_LevelsSymbol);
+				nlohmann::json jlevels;
+				SEXP2JSON(levels, jlevels);
+				nlohmann::json factor = {{"$type", "factor"}, {"data", col}, {"levels", jlevels}};
+				cols.push_back(factor);
+			}
+			else {
+				nlohmann::json jcol = col;
+				cols.push_back(jcol);
+			}
 			
-			nlohmann::json jcol = col;
-			cols.push_back(jcol);
-
 		}
 		
 		// destructure a little bit.  if it's a single column, compress to 
@@ -546,7 +582,7 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 		// single value
 
 		if( Rf_isNull(sexp)){
-			json = {{"type", "null"}, {"null", true }}; // FIXME: pick one
+			json = {{"$type", "null"}, {"null", true }}; // FIXME: pick one
 		}
 		else if (isLogical(sexp)) 
 		{
@@ -575,7 +611,17 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 		else if (Rf_isComplex(sexp))
 		{
 			Rcomplex cpx = Rf_asComplex(sexp);
-			json = {{"type", "complex"}, {"r", cpx.r }, {"i", cpx.i}};
+			json = {{"$type", "complex"}, {"r", cpx.r }, {"i", cpx.i}};
+		}
+		else if( Rf_isFactor(sexp)){
+			
+			SEXP levels = Rf_getAttrib(sexp, R_LevelsSymbol);
+			nlohmann::json jlevels;
+			SEXP2JSON(levels, jlevels);
+			
+			// FIXME: should this match up with the list factor type, having a data array of length 1?
+			json = {{"$type", "factor"}, {"value", Rf_asInteger(sexp)}, {"levels", jlevels}}; 
+			
 		}
 		else if (Rf_isInteger(sexp))
 		{
@@ -591,7 +637,7 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 		}
 		else {
 			//std::cerr << "unhandled type " << TYPEOF(sexp) << std::endl;
-			json = {{"unparsed", true}, {"type", TYPEOF(sexp)}};
+			json = {{"unparsed", true}, {"$type", TYPEOF(sexp)}};
 		}
 	}
 	
