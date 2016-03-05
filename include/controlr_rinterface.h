@@ -13,7 +13,7 @@
 #include "controlr_common.h"
 #include "3dparty/json.hpp"
 
-extern int input_stream_read(const char *prompt, char *buf, int len, int addtohistory);
+extern int input_stream_read(const char *prompt, char *buf, int len, int addtohistory, bool is_continuation);
 
 void r_exec_vector(std::vector<std::string> &vec, int *err, PARSE_STATUS_2 *status, bool printResult, bool excludeFromHistory);
 void r_set_user_break( const char *msg = 0 );

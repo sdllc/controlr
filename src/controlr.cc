@@ -87,10 +87,10 @@ __inline void writeJSON( json &j, uv_stream_t* client, uv_write_cb cb, std::vect
 	
 }
 
-int input_stream_read( const char *prompt, char *buf, int len, int addtohistory ){
+int input_stream_read( const char *prompt, char *buf, int len, int addtohistory, bool is_continuation ){
 
 	json srcref;
-	json response = {{"type", "prompt"}, {"data", {{"prompt", prompt}, {"srcref", get_srcref(srcref)}}}};
+	json response = {{"type", "prompt"}, {"data", {{"prompt", prompt}, {"continuation", is_continuation}, {"srcref", get_srcref(srcref)}}}};
 	push_response( response );
 	
 	// cout << "(PROMPT: " << prompt << ")" << endl;

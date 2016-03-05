@@ -57,8 +57,11 @@ int R_ReadConsole(const char *prompt, char *buf, int len, int addtohistory)
 		R_RegisterCCallable("ControlR", "CallbackJSON", (DL_FUNC)direct_callback_json);
 		R_RegisterCCallable("ControlR", "CallbackSEXP", (DL_FUNC)direct_callback_sexp);
 	}
+
+	const char *cprompt = CHAR(STRING_ELT(GetOption1(install("continue")), 0));
+	bool is_continuation = ( !strcmp( cprompt, prompt ));
 	
-	return input_stream_read( prompt, buf, len, addtohistory );
+	return input_stream_read( prompt, buf, len, addtohistory, is_continuation );
 }
 
 void R_WriteConsoleEx( const char *buf, int len, int flag )

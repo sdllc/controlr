@@ -195,7 +195,7 @@ var ControlR = function(){
 	function run_command_queue(){
 		if( !busy && command_queue.length ){
 			var cmd = command_queue.splice(0,1);
-			this.internal( cmd[0].command ).then( function( response ){
+			this[cmd[0].path]( cmd[0].command ).then( function( response ){
 				cmd[0].resolve.call( this, response );
 			}).catch(function(){
 				cmd[0].reject.apply( this, arguments );
@@ -385,26 +385,31 @@ var ControlR = function(){
 	 * that's for things like "set console width", where we might have 
 	 * mutliple queued calls and the earlier calls are superfluous.
 	 */
-	this.queued_internal = function( cmds, key ){
+	this.queued_command = function( cmds, path, key ){
 		
-		if( !busy ) return this.internal( cmds );
-
+		if( !busy ) return this[path]( cmds );
 		return new Promise( function( resolve, reject ){
-			
 			if( key ){
 				var tmp = [];
 				command_queue.map( function(x){
-					if( x.key !== key ) tmp.push(x);
+					if( x.key !== key || x.path !== path ) tmp.push(x);
 					else if( x.reject ) x.reject.call( this, "superceded" );
 				})
 				command_queue = tmp;
 			}
-			command_queue.push({ command: cmds, key: key, resolve: resolve, reject: reject });
-			
+			command_queue.push({ command: cmds, key: key, path: path, resolve: resolve, reject: reject });
 		});
 		
 	};
 
+	this.queued_internal = function( cmds, key ){
+		return this.queued_command( cmds, "internal", key );
+	};
+
+	this.queued_exec = function( cmds, key ){
+		return this.queued_command( cmds, "exec", key );
+	};
+	
     /** shutdown and clean up */    
     this.shutdown = function(){
 		//if( interval ){
