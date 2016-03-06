@@ -475,7 +475,7 @@ json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array ){
 			for( int i = 0; i< len; i++ ){
 				std::string strname = jnames[i].get<std::string>();
 				if( strname.length() == 0 ){
-					sprintf_s( buffer, "$%d", i + 1 ); // 1-based per R convention
+					snprintf( buffer, 64, "$%d", i + 1 ); // 1-based per R convention
 					strname = buffer;
 				}
 				(*target)[strname] = vector[i];
