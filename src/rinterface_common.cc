@@ -32,6 +32,14 @@ std::vector< std::string > cmdBuffer;
 #undef clear
 #undef length
 
+using json = nlohmann::json;
+
+using std::cout;
+using std::cerr;
+using std::endl;
+
+json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array = true );
+
 extern "C" {
 	extern void Rf_PrintWarnings();
 	extern Rboolean R_Visible;
@@ -199,6 +207,295 @@ void r_exec_vector(std::vector<std::string> &vec, int *err, PARSE_STATUS_2 *stat
 
 }
 
+json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array ){
+
+	jresult.clear(); // jic
+
+	// check null (and exit early)
+	if (!sexp){
+		jresult = nullptr;
+		return jresult;
+	}
+
+	int len = Rf_length(sexp);
+	int rtype = TYPEOF(sexp);
+	
+	// cout << "len " << len << ", type " << rtype << endl;
+
+	if( len == 0 ) return jresult;
+	
+	// environment
+	else if( Rf_isEnvironment( sexp )){
+		
+		int err;
+		std::string strname;
+		jresult["$type"] = "environment";
+		SEXP names = PROTECT(R_tryEval(Rf_lang2(R_NamesSymbol, sexp), R_GlobalEnv, &err));
+		if (!err && names != R_NilValue) {
+			int len = Rf_length(names);
+			for (int c = 0; c < len; c++)
+			{
+				SEXP name = STRING_ELT(names, c);
+				const char *tmp = translateChar(name);
+				if (tmp[0]){
+					strname = tmp;
+					SEXP elt = PROTECT(R_tryEval(Rf_lang2(Rf_install("get"), Rf_mkString(tmp)), sexp, &err));
+					if( !err ){
+						json jsonelt;
+						SEXP2JSON( elt, jsonelt );
+						jresult[strname] = jsonelt; 
+					}
+					UNPROTECT(1);
+				} 
+			}
+		}
+		UNPROTECT(1);
+	}
+	/*
+	// list (or frame)
+	else if( Rf_isList( sexp ) || Rf_isFrame( sexp )){
+
+		cout << " + list (frame? " << (Rf_isFrame(sexp) ? "T":"F") << ")" << endl;
+
+		jresult["$type"] = (Rf_isFrame( sexp )) ? "frame" : "list";
+		
+		// names
+		SEXP names = getAttrib(sexp, R_NamesSymbol);
+		if( names && TYPEOF(names) != 0 ){
+			json jnames;
+			jresult["$names"] = SEXP2JSON( names, jnames );
+		}
+
+		// dimnames (for rows, if frame)
+		SEXP dimnames = getAttrib(sexp, R_DimNamesSymbol);
+		if( dimnames && TYPEOF(dimnames) != 0 ){
+			json jdimnames;
+			jresult["$dimnames"] = SEXP2JSON( dimnames, jdimnames );
+		}
+		
+		// and data
+		std::vector < json > data;
+		for( int i = 0; i< len; i++ ){
+			json elt;
+			SEXP x = VECTOR_ELT( sexp, i );
+			data.push_back( SEXP2JSON( VECTOR_ELT(sexp, i), elt ));
+		}
+		jresult["$data"] = data;
+	}
+	*/
+	/*
+	// vector; may be multidimensional
+	else if( Rf_isVector(sexp) ){
+
+		cout << " + vector, len " << len << ", type " << TYPEOF(sexp) << endl;
+	
+		if( Rf_isMatrix(sexp) ){
+			jresult["$type"] = "matrix";
+			jresult["$nrows"] = Rf_nrows(sexp);
+			jresult["$ncols"] = Rf_ncols(sexp);
+		}
+		else jresult["$type"] = "vector";
+	
+		SEXP dimnames = getAttrib(sexp, R_DimNamesSymbol);
+		if( dimnames ){
+			json jdimnames;
+			jresult["$dimnames"] = SEXP2JSON( dimnames, jdimnames );
+		}
+		
+		std::vector < json > data;
+		for( int i = 0; i< len; i++ ){
+			json elt;
+			
+			cout << "BC" << endl;
+			SEXP x = VECTOR_ELT( sexp, i );
+			cout << "/BC" << endl;
+
+			data.push_back( SEXP2JSON( VECTOR_ELT(sexp, i), elt ));
+		}
+		jresult["$data"] = data;
+		
+	}
+	*/
+	
+	// intrinsic type; although these are implicitly vectors
+	else {
+		
+		// cout << " + intrinsic; type " << rtype << ", len " << len << endl;
+		
+		bool attrs = false;
+		bool names = false; // separate from other attrs
+
+		if( Rf_isMatrix(sexp) ){
+			jresult["$type"] = "matrix";
+			jresult["$nrows"] = Rf_nrows(sexp);
+			jresult["$ncols"] = Rf_ncols(sexp);
+			attrs = true;
+		}
+		
+		SEXP dimnames = getAttrib(sexp, R_DimNamesSymbol);
+		if( dimnames && TYPEOF(dimnames) != 0 ){
+			json jdimnames;
+			jresult["$dimnames"] = SEXP2JSON( dimnames, jdimnames );
+			attrs = true;
+		}
+		
+		SEXP rnames = getAttrib(sexp, R_NamesSymbol);
+		json jnames;
+		if( rnames && TYPEOF(rnames) != 0 ){
+			SEXP2JSON( rnames, jnames, false );
+			names = true;
+		}
+		
+		std::vector< json > vector;
+
+		if( Rf_isNull(sexp)){
+			json j = {{"$type", "null"}, {"null", true }}; // FIXME: pick one
+			vector.push_back(j);
+			attrs = true;
+		}
+		else if (isLogical(sexp)) 
+		{
+			// it seems wasteful having this first, 
+			// but I think one of the other types is 
+			// intercepting it.  figure out how to do
+			// tighter checks and then move this down
+			// so real->integer->string->logical->NA->?
+
+			// this is weird, but NA seems to be a logical
+			// with a particular value.
+			
+			for( int i = 0; i< len; i++ ){
+				int lgl = (INTEGER(sexp))[i];
+				if (lgl == NA_LOGICAL) vector.push_back( nullptr );
+				else vector.push_back( lgl ? true : false );
+			}
+			
+		}
+		else if (Rf_isComplex(sexp))
+		{
+			for( int i = 0; i< len; i++ ){
+				Rcomplex cpx = (COMPLEX(sexp))[i];
+				vector.push_back({{"$type", "complex"}, {"r", cpx.r }, {"i", cpx.i}});
+			}
+		}
+		else if( Rf_isFactor(sexp)){
+			
+			SEXP levels = Rf_getAttrib(sexp, R_LevelsSymbol);
+			jresult["$type"] = "factor";
+			json jlevels;
+			jresult["$levels"] = SEXP2JSON(levels, jlevels);
+			attrs = true;
+			for( int i = 0; i< len; i++ ){ vector.push_back( (INTEGER(sexp))[i] ); }
+		}
+		else if (Rf_isInteger(sexp))
+		{
+			for( int i = 0; i< len; i++ ){ vector.push_back( (INTEGER(sexp))[i] ); }
+		}
+		else if (isReal(sexp) || Rf_isNumber(sexp))
+		{
+			for( int i = 0; i< len; i++ ){ vector.push_back( (REAL(sexp))[i] ); }
+		}
+		else if (isString(sexp))
+		{
+			for( int i = 0; i< len; i++ ){
+				/*
+				const char *tmp = translateChar(STRING_ELT(sexp, i));
+				if (tmp[0]) vector.push_back(tmp);
+				else vector.push_back( "" );
+				*/
+				
+				// FIXME: need to unify this in some fashion
+				
+				SEXP strsxp = STRING_ELT( sexp, i );
+				const char *tmp = translateChar(STRING_ELT(sexp, i));
+				if( tmp[0] ){
+					std::string str = CHAR(Rf_asChar(strsxp));
+					vector.push_back(str);
+				}
+				else vector.push_back( "" );
+				
+			}
+		}
+		else if( rtype == VECSXP ){
+			
+			if( Rf_isFrame( sexp )) jresult["$type"] = "frame";
+			else jresult["$type"] = "list";
+			attrs = true;
+			
+			for( int i = 0; i< len; i++ ){
+				json elt;
+				vector.push_back( SEXP2JSON( VECTOR_ELT(sexp, i), elt ));
+			}
+		}
+		else {
+		
+			attrs = true;
+			jresult["$unparsed"] = true;
+			switch( TYPEOF(sexp)){
+			case NILSXP: jresult["$type"] = "NILSXP"; break;
+			case SYMSXP: jresult["$type"] = "SYMSXP"; break;
+			case LISTSXP: jresult["$type"] = "LISTSXP"; break;
+			case CLOSXP: jresult["$type"] = "CLOSXP"; break;
+			case ENVSXP: jresult["$type"] = "ENVSXP"; break;
+			case PROMSXP: jresult["$type"] = "PROMSXP"; break;
+			case LANGSXP: jresult["$type"] = "LANGSXP"; break;
+			case SPECIALSXP: jresult["$type"] = "SPECIALSXP"; break;
+			case BUILTINSXP: jresult["$type"] = "BUILTINSXP"; break;
+			case CHARSXP: jresult["$type"] = "CHARSXP"; break;
+			case LGLSXP: jresult["$type"] = "LGLSXP"; break;
+			case INTSXP: jresult["$type"] = "INTSXP"; break;
+			case REALSXP: jresult["$type"] = "REALSXP"; break;
+			case CPLXSXP: jresult["$type"] = "CPLXSXP"; break;
+			case STRSXP: jresult["$type"] = "STRSXP"; break;
+			case DOTSXP: jresult["$type"] = "DOTSXP"; break;
+			case ANYSXP: jresult["$type"] = "ANYSXP"; break;
+			case VECSXP: jresult["$type"] = "VECSXP"; break;
+			case EXPRSXP: jresult["$type"] = "EXPRSXP"; break;
+			case BCODESXP: jresult["$type"] = "BCODESXP"; break;
+			case EXTPTRSXP: jresult["$type"] = "EXTPTRSXP"; break;
+			case WEAKREFSXP: jresult["$type"] = "WEAKREFSXP"; break;
+			case RAWSXP: jresult["$type"] = "RAWSXP"; break;
+			case S4SXP: jresult["$type"] = "S4SXP"; break;
+			case NEWSXP: jresult["$type"] = "NEWSXP"; break;
+			case FREESXP: jresult["$type"] = "FREESXP"; break;
+			case FUNSXP: jresult["$type"] = "FUNSXP"; break;
+			default: jresult["$type"] = "unknwon";
+			};
+			
+		}
+		
+		// FIXME: make this optional or use a flag.  this sets name->value
+		// pairs as in the R list.  however in javascript/json, order isn't 
+		// necessarily retained, so it's questionable whether this is a good thing.
+		
+		if( names ){
+			json hash;
+			char buffer[64];
+			json *target = ( attrs ? &hash : &jresult );
+			for( int i = 0; i< len; i++ ){
+				std::string strname = jnames[i].get<std::string>();
+				if( strname.length() == 0 ){
+					sprintf_s( buffer, "$%d", i + 1 ); // 1-based per R convention
+					strname = buffer;
+				}
+				(*target)[strname] = vector[i];
+			}
+			if( attrs ) jresult["$data"] = hash;
+			else jresult["$type"] = rtype;
+		}
+		else {
+			if( attrs ){
+				jresult["$data"] = vector;
+			}
+			else if( len > 1 || !compress_array ) jresult = vector;
+			else jresult = vector[0];
+		}
+				
+	}
+	
+	return jresult;
+}
+
 /**
  * in general, we want to reduce to the appropriate type: boolean, 
  * number (don't care about int/double), string.  lists are objects
@@ -207,15 +504,15 @@ void r_exec_vector(std::vector<std::string> &vec, int *err, PARSE_STATUS_2 *stat
  * where type information is useful, such as in NULL (intrinsic in R)
  * and complex, we'll include a $type field.  $type is technically a
  * legal symbol in R, but it should be pretty rare as it's hard to use.
- */
-nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
+  */
+json& SEXP2JSON_y( SEXP sexp, json &j, bool compress_array ){
 
-	json.clear(); // jic
+	j.clear(); // jic
 
 	if (!sexp)
 	{
-		json = nullptr;
-		return json;
+		j = nullptr;
+		return j;
 	}
 
 	int len = Rf_length(sexp);
@@ -235,30 +532,30 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 
 		SEXP rownames = getAttrib(sexp, R_DimNamesSymbol);
 		if( rownames ){
-			nlohmann::json jrownames;
-			json["rownames"] = SEXP2JSON( rownames, jrownames );
+			json jrownames;
+			j["rownames"] = SEXP2JSON( rownames, jrownames );
 		}
 		
 		SEXP colnames = getAttrib(sexp, R_NamesSymbol);
 		if( colnames ){
-			nlohmann::json jcolnames;
-			json["colnames"] = SEXP2JSON( colnames, jcolnames );
+			json jcolnames;
+			j["colnames"] = SEXP2JSON( colnames, jcolnames );
 		}
 
-		//std::vector< std::vector< nlohmann::json >> cols;
-		std::vector< nlohmann::json > cols;
+		//std::vector< std::vector< json >> cols;
+		std::vector< json > cols;
 
 		SEXP strsxp;
 	
 		for (int i = 0; i < nc; i++)
 		{
-			std::vector< nlohmann::json > col;
+			std::vector< json > col;
 			SEXP c = VECTOR_ELT(sexp, i);
 			type = TYPEOF(c);
 			
 			for (int j = 0; j < nr; j++)
 			{
-				nlohmann::json jval;
+				json jval;
 				switch (type)
 				{
 				case INTSXP:	
@@ -292,20 +589,20 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 
 			if( Rf_isFactor( c )){
 				SEXP levels = Rf_getAttrib(c, R_LevelsSymbol);
-				nlohmann::json jlevels;
+				json jlevels;
 				SEXP2JSON(levels, jlevels);
-				nlohmann::json factor = {{"$type", "factor"}, {"data", col}, {"levels", jlevels}};
+				json factor = {{"$type", "factor"}, {"data", col}, {"levels", jlevels}};
 				cols.push_back(factor);
 			}
 			else { 
-				nlohmann::json jcol = col;
+				json jcol = col;
 				cols.push_back(jcol);
 			}
 			
 		}
 		
-		json["data"] = cols;
-		json["$type"] = "frame";
+		j["data"] = cols;
+		j["$type"] = "frame";
 		
 	////////////////////////	
 	
@@ -398,7 +695,7 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 			char buffer[128];
 			std::string strname;
 			SEXP names = PROTECT(getAttrib(sexp, R_NamesSymbol));
-			if( names != R_NilValue ) json["$type"] = "list";
+			if( names != R_NilValue ) j["$type"] = "list";
 				
 			for (int c = 0; c < nc; c++)
 			{
@@ -414,9 +711,9 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 					if (tmp[0]) strname = tmp;
 				}
 				
-				nlohmann::json elt;
+				json elt;
 				SEXP2JSON( v, elt );
-				json[strname] = elt; 
+				j[strname] = elt; 
 				
 			}
 			
@@ -428,7 +725,7 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 		
 		std::string strname;
 		int err;
-		json["$type"] = "environment";
+		j["$type"] = "environment";
 		
 		SEXP names = PROTECT(R_tryEval(Rf_lang2(R_NamesSymbol, sexp), R_GlobalEnv, &err));
 		if (!err && names != R_NilValue) {
@@ -444,9 +741,9 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 					strname = tmp;
 					SEXP elt = PROTECT(R_tryEval(Rf_lang2(Rf_install("get"), Rf_mkString(tmp)), sexp, &err));
 					if( !err ){
-						nlohmann::json jsonelt;
+						json jsonelt;
 						SEXP2JSON( elt, jsonelt );
-						json[strname] = jsonelt; 
+						j[strname] = jsonelt; 
 					}
 					UNPROTECT(1);
 				} 
@@ -472,8 +769,8 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 			nr = Rf_nrows(sexp);
 		}
 
-	//	std::vector< std::vector< nlohmann::json >> cols;
-		std::vector< nlohmann::json > cols;
+	//	std::vector< std::vector< json >> cols;
+		std::vector< json > cols;
 
 		// FIXME: LOOP ON THE INSIDE (CHECK OPTIM)
 
@@ -486,14 +783,14 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 		char buffer[64]; // buffer for $x names
 		SEXP names = PROTECT(R_tryEval(Rf_lang2(R_NamesSymbol, sexp), R_GlobalEnv, &err));
 		
-		if( names != R_NilValue ) json["$type"] = "list";
+		if( names != R_NilValue ) j["$type"] = "list";
 		
 		for (int i = 0; i < nc; i++)
 		{
-			std::vector< nlohmann::json > col;
+			std::vector< json > col;
 			for (int j = 0; j < nr; j++)
 			{
-				nlohmann::json jval;
+				json jval;
 				switch (type)
 				{
 				case INTSXP:	
@@ -525,7 +822,7 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 				if( names == R_NilValue ) col.push_back( jval );
 				else {
 					if( col.size() == 0 ){
-						nlohmann::json list;
+						json list;
 						col.push_back(list);
 					}
 					
@@ -542,13 +839,13 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 		
 			if( Rf_isFactor(sexp)){
 				SEXP levels = Rf_getAttrib(sexp, R_LevelsSymbol);
-				nlohmann::json jlevels;
+				json jlevels;
 				SEXP2JSON(levels, jlevels);
-				nlohmann::json factor = {{"$type", "factor"}, {"data", col}, {"levels", jlevels}};
+				json factor = {{"$type", "factor"}, {"data", col}, {"levels", jlevels}};
 				cols.push_back(factor);
 			}
 			else {
-				nlohmann::json jcol = col;
+				json jcol = col;
 				cols.push_back(jcol);
 			}
 			
@@ -559,17 +856,17 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 		
 		if( cols.size() == 1 ){
 			if( cols[0].size() == 1 ){
-				json = cols[0][0];
+				j = cols[0][0];
 			}
 			else {
-				json = cols[0];
+				j = cols[0];
 			}
 		}
 		else {
 			
 			// FIXME: names?
 			
-			json = cols;
+			j = cols;
 		}
 		
 		
@@ -582,7 +879,7 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 		// single value
 
 		if( Rf_isNull(sexp)){
-			json = {{"$type", "null"}, {"null", true }}; // FIXME: pick one
+			j = {{"$type", "null"}, {"null", true }}; // FIXME: pick one
 		}
 		else if (isLogical(sexp)) 
 		{
@@ -599,58 +896,58 @@ nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json ){
 			if (lgl == NA_LOGICAL)
 			{
 				// rslt->xltype = xltypeMissing;
-				json = nullptr;
+				j = nullptr;
 			}
 			else
 			{
 				//rslt->xltype = xltypeBool;
 				//rslt->val.xbool = lgl ? true : false;
-				json = lgl ? true : false;
+				j = lgl ? true : false;
 			}
 		}
 		else if (Rf_isComplex(sexp))
 		{
 			Rcomplex cpx = Rf_asComplex(sexp);
-			json = {{"$type", "complex"}, {"r", cpx.r }, {"i", cpx.i}};
+			j = {{"$type", "complex"}, {"r", cpx.r }, {"i", cpx.i}};
 		}
 		else if( Rf_isFactor(sexp)){
 			
 			SEXP levels = Rf_getAttrib(sexp, R_LevelsSymbol);
-			nlohmann::json jlevels;
+			json jlevels;
 			SEXP2JSON(levels, jlevels);
 			
 			// FIXME: should this match up with the list factor type, having a data array of length 1?
-			json = {{"$type", "factor"}, {"value", Rf_asInteger(sexp)}, {"levels", jlevels}}; 
+			j = {{"$type", "factor"}, {"value", Rf_asInteger(sexp)}, {"levels", jlevels}}; 
 			
 		}
 		else if (Rf_isInteger(sexp))
 		{
-			json = Rf_asInteger(sexp);
+			j = Rf_asInteger(sexp);
 		}
 		else if (isReal(sexp) || Rf_isNumber(sexp))
 		{
-			json = Rf_asReal(sexp);
+			j = Rf_asReal(sexp);
 		}
 		else if (isString(sexp))
 		{
-			json = CHAR(Rf_asChar(sexp));
+			j = CHAR(Rf_asChar(sexp));
 		}
 		else {
 			//std::cerr << "unhandled type " << TYPEOF(sexp) << std::endl;
-			json = {{"unparsed", true}, {"$type", TYPEOF(sexp)}};
+			j = {{"unparsed", true}, {"$type", TYPEOF(sexp)}};
 		}
 	}
 	
-	return json;
+	return j;
 	
 }
 
-nlohmann::json& get_srcref( nlohmann::json &srcref ){
+json& get_srcref( json &srcref ){
 	SEXP2JSON( R_Srcref, srcref );
 	return srcref;
 }
 
-nlohmann::json& exec_to_json( nlohmann::json &result, 
+json& exec_to_json( json &result, 
 	std::vector< std::string > &vec, int *err, PARSE_STATUS_2 *ps2, bool withVisible ){
 	
 	ParseStatus ps;
@@ -668,7 +965,7 @@ void direct_callback_json( const char *channel, const char *json ){
 }
 
 void direct_callback_sexp( const char *channel, SEXP sexp ){
-	nlohmann::json json;
+	json json;
 	SEXP2JSON( sexp, json );
 	direct_callback( channel, json.dump().c_str());
 }
