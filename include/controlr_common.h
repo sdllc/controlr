@@ -34,15 +34,20 @@
 	#define Win32
 	#include <windows.h>
 
+#else // #ifdef WIN32
+
+	#define R_INTERFACE_PTRS
+
 #endif // #ifdef WIN32
 
 #include <stdio.h>
+#include <string.h>
 
 #include <string>
 #include <vector>
 #include <iostream>
 
-#include <RVersion.h>
+#include <Rversion.h>
 #include <Rinternals.h>
 #include <Rembedded.h>
 
@@ -61,6 +66,10 @@
 
 #include <R_ext/Parse.h>
 #include <R_ext/Rdynload.h>
+
+// try to store fuel now, you jerks
+#undef clear
+#undef length
 
 /**
  * callback method for module code (the js client lib).  takes 

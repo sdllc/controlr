@@ -20,38 +20,9 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
- 
-#include <stdio.h>
-#include <signal.h>
-#include <unistd.h>
-#include <string.h>
 
-#include <string>
-#include <vector>
-#include <iostream>
-
+#include "controlr_common.h"
 #include "controlr_rinterface.h"
-
-// #define USE_RINTERNALS
-#define R_INTERFACE_PTRS
-
-#include <Rversion.h>
-#include <Rinternals.h>
-#include <Rembedded.h>
-#include <Rinterface.h>
-
-#include <R_ext/RStartup.h>
-#include <R_ext/Parse.h>
-#include <R_ext/Rdynload.h>
-
-#include <setjmp.h>
-
-//bool g_buffering = false;
-//std::vector< std::string > logBuffer;
-//std::vector< std::string > cmdBuffer;
-
-extern void direct_callback_json( const char *channel, const char *json );
-extern void direct_callback_sexp( const char *channel, SEXP sexp );
 
 extern "C" {
 	
@@ -65,13 +36,6 @@ extern "C" {
 
 }
 
-
-#undef length
-
-// -------------------------------------------------------------
-
-extern void log_message( const char *buf, int len = -1, int flag = 0 );
-
 void r_set_user_break( const char *msg ){
     
 	// if you're using pthreads, raise() calls pthread_kill(self), 
@@ -81,8 +45,8 @@ void r_set_user_break( const char *msg ){
 
 	// FIXME: use the flag in log_message here to signal it's a system message
 
-	if( msg ) log_message( msg, 0, 1 );
-	else log_message("user break\n", 0, 1);
+	if( msg ) console_message( msg, 0, 1 );
+	else console_message("user break\n", 0, 1);
 
 }
 
@@ -113,26 +77,8 @@ void R_ShowMessage( char *msg ){
 }
 
 void R_WriteConsoleEx( const char* message, int len, int status ){
-	log_message( message, len );
+	console_message( message, len, status );
 }
-
-/*
-void R_FlushConsole(){
-	std::cout << "RFC" << std::endl;
-}
-
-void R_ClearErrConsole(){
-	std::cout << "RCEC" << std::endl;
-}
-
-void R_ResetConsole(){
-	std::cout << "RRC" << std::endl;
-}
-
-void R_ProcessEvents(){
-	std::cout << "RPE" << std::endl;
-}
-*/
 
 int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 
@@ -156,26 +102,14 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
     R_Consolefile = NULL;
 	R_Interactive = TRUE;
 	
-//	setup_Rmainloop();
-//	R_ReplDLLinit();
-//	R_RegisterCCallable("ControlR", "CallbackJSON", (DL_FUNC)direct_callback_json);
-//	R_RegisterCCallable("ControlR", "CallbackSEXP", (DL_FUNC)direct_callback_sexp);
-//
-//	while(R_ReplDLLdo1() > 0);
-//	Rf_endEmbeddedR(0);
-
 	Rf_mainloop();
 	Rf_endEmbeddedR(0);
 
-    // printf( "r_init exit\n" );
     return 0;
 }
 
 
 void r_shutdown(){
-
-    // printf( "r_shutdown\n" );
-    // Rf_endEmbeddedR(0);
 
 }
 
