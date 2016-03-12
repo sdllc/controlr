@@ -102,7 +102,7 @@ void r_set_user_break( const char *msg ) {
 
 }
 
-int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
+int r_loop( const char *rhome, const char *ruser, int argc, char ** argv ){
 
 	structRstart rp;
 	Rstart Rp = &rp;
@@ -155,11 +155,6 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 
 	return 0;
 
-}
-
-void r_shutdown()
-{
-//	Rf_endEmbeddedR(0); // now called in init (which never exits)
 }
 
 void r_tick()

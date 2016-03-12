@@ -518,7 +518,7 @@ int main( int argc, char **argv ){
 			char nosave[] = "--no-save";
 			char* args[] = { argv[0], nosave };
 			initialized = true;
-			r_init( rhome.c_str(), "", 2, args );
+			r_loop( rhome.c_str(), "", 2, args );
 		
 		}
 	}

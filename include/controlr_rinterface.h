@@ -75,15 +75,9 @@ void direct_callback( const char *channel, const char *data );
 void console_message( const char *buf, int len = -1, int flag = 0 );
 
 /**
- * load and init R, exec any internal startup code 
+ * run R via its internal repl
  */	
-int r_init( const char *rhome, const char *ruser, int argc, char **argv );
-
-/**
- * shutdown R.  this isn't necessary anymore because we are looping 
- * within the init method (see comments for rationale)
- */
-void r_shutdown();
+int r_loop( const char *rhome, const char *ruser, int argc, char **argv );
 
 /**
  * break uses signals on linux, flag on windows

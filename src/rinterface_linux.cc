@@ -27,8 +27,9 @@
 extern "C" {
 	
 	extern void Rf_mainloop(void);
-	extern void R_ProcessEvents();
-	extern void Rsleep(double);
+	
+	// although the types are masked, the objects 
+	// are exposed and the interface uses pointers.
 	
 	extern void R_runHandlers(void *handlers, fd_set *readMask);
 	extern void *R_InputHandlers;
@@ -80,7 +81,7 @@ void R_WriteConsoleEx( const char* message, int len, int status ){
 	console_message( message, len, status );
 }
 
-int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
+int r_loop( const char *rhome, const char *ruser, int argc, char ** argv ){
 
     // we can't use Rf_initEmbeddedR because we need
     // to set pointer (and set NULLs) in between calls
@@ -107,11 +108,3 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 
     return 0;
 }
-
-
-void r_shutdown(){
-
-}
-
-
-
