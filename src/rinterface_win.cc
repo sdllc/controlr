@@ -150,13 +150,9 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
 	GA_initapp(0, 0);
 
-	std::cout << "INIT: LOOP" << std::endl;
-
 	Rf_mainloop();
 	Rf_endEmbeddedR(0);
 
-	std::cout << "INIT: DONE" << std::endl;
-	
 	return 0;
 
 }

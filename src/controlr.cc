@@ -114,11 +114,7 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 	json srcref;
 	json response = {{"type", "prompt"}, {"data", {{"prompt", prompt}, {"continuation", is_continuation}, {"srcref", get_srcref(srcref)}}}};
 	push_response( response );
-	
-	cout << "ISR" << endl;
 
-	// cout << "(PROMPT: " << prompt << ")" << endl;
-	
 	while( true ){
 	
 		// NOTE: from docs:
@@ -431,9 +427,7 @@ void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
 
 /** on successful connection, start read loop */
 void connect_cb(uv_connect_t* req, int status){
-	
-	cout << "CONNECT_CB" << endl;
-	
+
 	if( !status ){
 		if( uv_is_readable( client )){
 			uv_read_start( client, alloc_buffer, read_cb );
@@ -474,8 +468,6 @@ void thread_func( void *data ){
 	// run the loop as long as there are open handles
 		
 	uv_run( &threadloop, UV_RUN_DEFAULT );
-
-	cout << "UV_RUN END" << endl;
 	
 	// done; close and clean up	
 	
@@ -514,8 +506,6 @@ int main( int argc, char **argv ){
 		if( commands.size() > 0 ) break;
 	}
 
-	cout << "INIT SIGNALED" << endl;
-	
 	json j = commands[0];
 	if( j.find( "command" ) != j.end()){
 	
