@@ -1,48 +1,42 @@
-
-// #include "Shlwapi.h"
-
-#define Win32
-
-#include <windows.h>
-#include <stdio.h>
-#include <Rversion.h>
-
+/*
+ * controlR
+ * Copyright (C) 2016 Structured Data, LLC
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation 
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+ * and/or sell copies of the Software, and to permit persons to whom the 
+ * Software is furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included 
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+ 
+#include "controlr_common.h"
 #include "controlr_rinterface.h"
-
-#include <string>
-#include <vector>
-#include <iostream>
-#include <exception>
-
-// #define USE_RINTERNALS
-
-#include <Rinternals.h>
-#include <Rembedded.h>
-#include <graphapp.h>
-#include <R_ext\RStartup.h>
-#include <signal.h>
-#include <R_ext\Parse.h>
-#include <R_ext\Rdynload.h>
-
-#undef clear
-#undef length
 
 extern "C" {
 
-// instead of the "dlldo1" loop -- this one seems to be stable in setjmp/longjmp call
-extern void Rf_mainloop(void);
+	// instead of the "dlldo1" loop -- this one seems to be stable in setjmp/longjmp call
+	extern void Rf_mainloop(void);
 
-// in case we want to call these programatically (TODO)
-extern void R_RestoreGlobalEnvFromFile(const char *, Rboolean);
-extern void R_SaveGlobalEnvToFile(const char *);
-extern void R_ProcessEvents(void);
+	// in case we want to call these programatically (TODO)
+	extern void R_RestoreGlobalEnvFromFile(const char *, Rboolean);
+	extern void R_SaveGlobalEnvToFile(const char *);
+	
+	// for win32
+	extern void R_ProcessEvents(void);
 
-}
-
-extern void log_message( const char *buf, int len = -1, int flag = 0 );
-
-extern void direct_callback_json( const char *channel, const char *json );
-extern void direct_callback_sexp( const char *channel, SEXP sexp );
+};
 
 /**
  * we're now basing "exec" commands on the standard repl; otherwise 
@@ -64,23 +58,18 @@ int R_ReadConsole(const char *prompt, char *buf, int len, int addtohistory)
 	return input_stream_read( prompt, buf, len, addtohistory, is_continuation );
 }
 
+/**
+ * console messages are passed through.  note the signature is different on 
+ * windows/linux so implementation is platform dependent.
+ */
 void R_WriteConsoleEx( const char *buf, int len, int flag )
 {
-	log_message(buf, len, flag);
-}
-
-void R_CallBack(void)
-{
-	// std::cout << "callback" << std::endl;
-}
-
-void myBusy(int which)
-{
-	// std::cout << "busy: " << which << std::endl;
+	console_message(buf, len, flag);
 }
 
 /** 
- * "ask ok" has no return value.
+ * "ask ok" has no return value.  I guess that means "ask, then press OK", 
+ * not "ask if this is ok".
  */
 void R_AskOk(const char *info) {
 	::MessageBoxA(0, info, "Message from R", MB_OK);
@@ -99,8 +88,8 @@ void r_set_user_break( const char *msg ) {
 	// can synchronize with whatever is clearing it inside R, which we can't)
 
 	UserBreak = 1;
-	if( msg ) log_message( msg, 0, 1 );
-	else log_message("user break", 0, 1);
+	if( msg ) console_message( msg, 0, 1 );
+	else console_message("user break", 0, 1);
 
 }
 
@@ -138,23 +127,15 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	Rp->ReadConsole = R_ReadConsole;
 	Rp->WriteConsole = NULL;
 	Rp->WriteConsoleEx = R_WriteConsoleEx;
-	Rp->CallBack = R_CallBack;
+	
+	Rp->Busy = NULL;
+	Rp->CallBack = NULL;
+
 	Rp->ShowMessage = R_AskOk;
 	Rp->YesNoCancel = R_AskYesNoCancel;
-	Rp->Busy = myBusy;
 
-//	Rp->R_Quiet = FALSE;// TRUE;        /* Default is FALSE */
-
-	Rp->RestoreAction = SA_RESTORE;
+	Rp->RestoreAction = SA_RESTORE; // FIXME -- should we handle this in code?
 	Rp->SaveAction = SA_NOSAVE;
-	
-	/*
-	 printf( "R_Quiet? %s\n", Rp->R_Quiet ? "true" : "false" );
-	 printf( "R_Slave? %s\n", Rp->R_Slave ? "true" : "false" );
-	 printf( "R_Interactive? %s\n", Rp->R_Interactive ? "true" : "false" );
-	 printf( "R_Verbose? %s\n", Rp->R_Verbose ? "true" : "false" );
-	 fflush(0);
-	*/
 	
 	R_SetParams(Rp);
 	R_set_command_line_arguments(0, 0);
@@ -171,37 +152,9 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 void r_shutdown()
 {
 //	Rf_endEmbeddedR(0); // now called in init (which never exits)
-//	CloseHandle(muxLog);
-//	CloseHandle(muxExecR);
-
 }
 
 void r_tick()
 {
 	R_ProcessEvents();
 }
-
-/*
-#ifdef WIN32
-
-extern void external_callback( nlohmann::json &json );
-extern nlohmann::json& SEXP2JSON( SEXP sexp, nlohmann::json &json );
-
-void external_callback_wrapper( SEXP cmd, SEXP data, SEXP data2 ){
-
-	nlohmann::json json, jcmd, jdata, jdata2;
-	json["cmd"] = SEXP2JSON(cmd, jcmd);
-	json["data"] = SEXP2JSON(data, jdata);
-	json["data2"] = SEXP2JSON(data2, jdata2);
-	external_callback(json);
-}
-
-extern "C" {
-	__declspec( dllexport ) SEXP wrapr_callback( SEXP cmd, SEXP data, SEXP data2 ){
-		external_callback_wrapper( cmd, data, data2 );
-		return R_NilValue;
-	}
-}
-
-#endif
-*/

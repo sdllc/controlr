@@ -1,21 +1,44 @@
-
+/*
+ * controlR
+ * Copyright (C) 2016 Structured Data, LLC
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation 
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+ * and/or sell copies of the Software, and to permit persons to whom the 
+ * Software is furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included 
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+ 
 #ifndef __CONTROLR_H
 #define  __CONTROLR_H
 
-#include <iostream>
-#include <sstream>
 #include <string.h>
 #include <uv.h>
 
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
 #include "3dparty/json.hpp"
 
-#include "controlr_common.h"
 #include "controlr_rinterface.h"
 
+/**
+ * utility class
+ */
 class locked_ostringstream : public std::ostringstream {
 public:
 	locked_ostringstream(){
@@ -47,7 +70,9 @@ protected:
 	uv_mutex_t mutex;
 };
 
-
+/**
+ * utility class
+ */
 template < class T > class locked_vector : public std::vector < T > {
 public:
 	locked_vector(){

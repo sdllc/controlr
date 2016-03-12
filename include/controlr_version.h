@@ -20,59 +20,14 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
  * IN THE SOFTWARE.
  */
-
-/**
- * this header is for R code common to linux and win32 implmentations, but 
- * which is shielded from the non-R portion of the code (using R types or APIs).
- */
  
-#ifndef __CONTROLR_COMMON_H
-#define __CONTROLR_COMMON_H
+#ifndef __CONTROLR_VERSION_H
+#define __CONTROLR_VERSION_H
 
-#ifdef WIN32
+#define VERSION_MAJOR 0
+#define VERSION_MINOR 3
+#define VERSION_PATCH 0
 
-	#define Win32
-	#include <windows.h>
-
-#endif // #ifdef WIN32
-
-#include <stdio.h>
-
-#include <string>
-#include <vector>
-#include <iostream>
-
-#include <RVersion.h>
-#include <Rinternals.h>
-#include <Rembedded.h>
-
-#ifdef WIN32
-
-	#include <graphapp.h>
-	#include <R_ext\RStartup.h>
-
-#else // #ifdef WIN32
-
-	#include <signal.h>
-	#include <unistd.h>
-	#include <Rinterface.h>
-
-#endif // #ifdef WIN32
-
-#include <R_ext/Parse.h>
-#include <R_ext/Rdynload.h>
-
-/**
- * callback method for module code (the js client lib).  takes 
- * JSON string (text).
- */
-void direct_callback_json( const char *channel, const char *json );
-
-/**
- * callback method for module code (the js client lib).  takes SEXP.
- */
-void direct_callback_sexp( const char *channel, SEXP sexp );
-
-#endif // #ifndef __CONTROLR_COMMON_H
+#endif // #ifndef __CONTROLR_VERSION_H
 
 

@@ -1,30 +1,28 @@
-
-
-#include <stdio.h>
-#include <signal.h>
-
-#include <string>
-#include <vector>
-#include <iostream>
-
+/*
+ * controlR
+ * Copyright (C) 2016 Structured Data, LLC
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation 
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+ * and/or sell copies of the Software, and to permit persons to whom the 
+ * Software is furnished to do so, subject to the following conditions:
+ * 
+ * The above copyright notice and this permission notice shall be included 
+ * in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING 
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+ * IN THE SOFTWARE.
+ */
+ 
 #include "controlr_rinterface.h"
-
-#include <Rinternals.h>
-#include <Rembedded.h>
-
-#ifdef WIN32
-
-	#include <graphapp.h>
-
-#else // #ifdef WIN32
-
-	#include <unistd.h>
-	#include <Rinterface.h>
-
-#endif // #ifdef WIN32
-
-#include <R_ext/Parse.h>
-#include <R_ext/Rdynload.h>
+#include "controlr_common.h"
 
 std::vector< std::string > cmdBuffer;
 
@@ -147,65 +145,6 @@ SEXP exec_r(std::vector < std::string > &vec, int *err, ParseStatus *pStatus, bo
 }
 
 
-void r_exec_vector(std::vector<std::string> &vec, int *err, PARSE_STATUS_2 *status, bool printResult, bool excludeFromHistory)
-{
-	ParseStatus ps;
-
-	// if you want the history() command to appear on the history
-	// stack, like bash, you need to add the line(s) to the buffer
-	// here; and then potentially remove them if you get an INCOMPLETE
-	// response (b/c in that case we'll see it again)
-
-	//SEXP rslt = PROTECT(exec_r(vec, err, &ps, true));
-	exec_r(vec, err, &ps, true);
-
-	if (status)
-	{
-		switch (ps)
-		{
-		case PARSE_OK: *status = PARSE2_OK; break;
-		case PARSE_INCOMPLETE: *status = PARSE2_INCOMPLETE; break;
-		case PARSE_ERROR: *status = PARSE2_ERROR; break;
-		case PARSE_EOF: *status = PARSE2_EOF; break;
-		default:
-		case PARSE_NULL:
-			*status = PARSE2_NULL; break;
-		}
-	}
-
-	if (!excludeFromHistory) {
-		if (ps == PARSE_OK || ps == PARSE_ERROR) {
-			while (cmdBuffer.size() >= MAX_CMD_HISTORY) cmdBuffer.erase(cmdBuffer.begin());
-			for (std::vector< std::string > ::iterator iter = vec.begin(); iter != vec.end(); iter++)
-				cmdBuffer.push_back(iter->c_str());
-		}
-	}
-
-/*
-	if (ps == PARSE_OK && printResult && rslt)
-	{
-        // rslt will be ( result, visible ) so check the
-        // second element to determine whether to print
-        // the result
-        
-//		int *pVisible = LOGICAL(VECTOR_ELT(rslt, 1));
-
-		if (*(LOGICAL(VECTOR_ELT(rslt, 1)))) {
-//			::WaitForSingleObject(muxExecR, INFINITE);
-			Rf_PrintValue(VECTOR_ELT(rslt, 0));
-//			::ReleaseMutex(muxExecR);
-		}
-		// FIXME: print warnings...
-
-		//if( R_CollectWarnings) 
-		Rf_PrintWarnings();
-		
-	}
-	*/	
-	
-	// UNPROTECT(1);
-
-}
 
 json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array ){
 
