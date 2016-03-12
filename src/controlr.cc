@@ -27,8 +27,8 @@
 using namespace std;
 using json = nlohmann::json;
 
-uv_pipe_t _pipe;
 uv_tcp_t _tcp;
+uv_pipe_t _pipe;
 
 uv_stream_t *client;
 
@@ -36,7 +36,6 @@ locked_vector < json > command_queue;
 locked_vector < json > response_queue;
 locked_vector < json > input_queue;
 
-//uv_async_t async_on_main_loop;
 uv_async_t async_on_thread_loop;
 
 uv_timer_t console_buffer_timer;
@@ -86,7 +85,7 @@ __inline void push_response( json &j ){
 /** 
  * write a packet plus a newline (which we use as a separator) 
  */
-__inline void writeJSON( json &j, uv_stream_t* client, uv_write_cb cb, std::vector< char* > *pool = 0){
+__inline void writeJSON( json &j, std::vector< char* > *pool = 0){
 	
 	std::string str = j.dump();
 	int len = (int)str.length();
@@ -106,7 +105,7 @@ __inline void writeJSON( json &j, uv_stream_t* client, uv_write_cb cb, std::vect
 	}
 		
 	uv_buf_t wrbuf = uv_buf_init(sz, len);
-	uv_write(req, client, &wrbuf, 1, cb);
+	uv_write(req, client, &wrbuf, 1, write_callback);
 	
 }
 
@@ -116,6 +115,8 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 	json response = {{"type", "prompt"}, {"data", {{"prompt", prompt}, {"continuation", is_continuation}, {"srcref", get_srcref(srcref)}}}};
 	push_response( response );
 	
+	cout << "ISR" << endl;
+
 	// cout << "(PROMPT: " << prompt << ")" << endl;
 	
 	while( true ){
@@ -290,13 +291,13 @@ __inline void flushConsoleBuffer(){
 	os_buffer_err.locked_give(s);
 	if( s.length()){
 		json j = {{"type", "console"}, {"message", s.c_str()}, {"flag", 1}};
-		writeJSON( j, client, write_callback );
+		writeJSON( j );
 	}
 
 	os_buffer.locked_give(s);
 	if( s.length()){
 		json j = {{"type", "console"}, {"message", s.c_str()}, {"flag", 0}};
-		writeJSON( j, client, write_callback );
+		writeJSON( j );
 	}
 
 }
@@ -345,7 +346,7 @@ void async_thread_loop_callback( uv_async_t *handle ){
 	
 	for( std::vector< json >::iterator iter = messages.begin();
 			iter != messages.end(); iter++ ){
-		writeJSON( *iter, client, write_callback );
+		writeJSON( *iter );
 	}
 	
 }
@@ -428,25 +429,34 @@ void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
 	free(buf->base);
 }
 
+/** on successful connection, start read loop */
 void connect_cb(uv_connect_t* req, int status){
+	
+	cout << "CONNECT_CB" << endl;
 	
 	if( !status ){
 		if( uv_is_readable( client )){
 			uv_read_start( client, alloc_buffer, read_cb );
 		}
-		else cerr <<"client not readable!" << endl;
+		else cerr << "ERR: client not readable" << endl;
 	}
 }
 
+/**
+ * comms thread body.  runs until shutdown by closing in/out handles.
+ */
 void thread_func( void *data ){
 	
 	uv_loop_t threadloop;
+	uv_connect_t req;
+
+	// set up libuv loop, async, timer
 	
 	uv_loop_init( &threadloop );
 	uv_async_init( &threadloop, &async_on_thread_loop, async_thread_loop_callback );
 	uv_timer_init( &threadloop, &console_buffer_timer );
 
-	uv_connect_t req;
+	// connect either tcp or port (named pipe)
 
 	if( i_port ){
 		uv_tcp_init(&threadloop, &_tcp);
@@ -460,16 +470,17 @@ void thread_func( void *data ){
 		uv_pipe_init( &threadloop, &_pipe, 0 );
 		uv_pipe_connect( &req, &_pipe, str_connection.c_str(), connect_cb);
 	}
+	
+	// run the loop as long as there are open handles
 		
 	uv_run( &threadloop, UV_RUN_DEFAULT );
+
+	cout << "UV_RUN END" << endl;
 	
-	cout << "thread loop complete" << endl;
+	// done; close and clean up	
+	
 	uv_loop_close(&threadloop);
-	cout << "thread loop closed" << endl;
-
 	uv_close( (uv_handle_t*)&console_buffer_timer, NULL );
-
-	cout << "thread proc complete" << endl;
 	
 }
 
@@ -494,7 +505,6 @@ int main( int argc, char **argv ){
 	
 	uv_cond_init( &init_condition );
 	uv_mutex_init( &init_condition_mutex );
-	
     uv_thread_create(&thread_id, thread_func, 0);
 	
 	std::vector< json > commands;
@@ -503,6 +513,8 @@ int main( int argc, char **argv ){
 		command_queue.locked_give_all( commands );
 		if( commands.size() > 0 ) break;
 	}
+
+	cout << "INIT SIGNALED" << endl;
 	
 	json j = commands[0];
 	if( j.find( "command" ) != j.end()){

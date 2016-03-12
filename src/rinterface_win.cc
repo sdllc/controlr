@@ -82,6 +82,15 @@ int R_AskYesNoCancel(const char *question) {
 	return (IDYES == ::MessageBoxA(0, question, "Message from R", MB_YESNOCANCEL)) ? 1 : -1;
 }
 
+
+void R_CallBack(void)
+{
+}
+
+void R_Busy(int which)
+{
+}
+
 void r_set_user_break( const char *msg ) {
 
 	// FIXME: synchronize (actually that's probably not helpful, unless we
@@ -128,9 +137,8 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	Rp->WriteConsole = NULL;
 	Rp->WriteConsoleEx = R_WriteConsoleEx;
 	
-	Rp->Busy = NULL;
-	Rp->CallBack = NULL;
-
+	Rp->Busy = R_Busy;
+	Rp->CallBack = R_CallBack;
 	Rp->ShowMessage = R_AskOk;
 	Rp->YesNoCancel = R_AskYesNoCancel;
 
@@ -142,8 +150,12 @@ int r_init( const char *rhome, const char *ruser, int argc, char ** argv ){
 	FlushConsoleInputBuffer(GetStdHandle(STD_INPUT_HANDLE));
 	GA_initapp(0, 0);
 
+	std::cout << "INIT: LOOP" << std::endl;
+
 	Rf_mainloop();
 	Rf_endEmbeddedR(0);
+
+	std::cout << "INIT: DONE" << std::endl;
 	
 	return 0;
 
