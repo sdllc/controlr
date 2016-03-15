@@ -129,7 +129,7 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 		uv_cond_timedwait( &input_condition, &input_condition_mutex, CONSOLE_BUFFER_EVENTS_TICK ); 
 
 		std::vector < json > commands;
-		input_queue.locked_give_all( commands );
+		input_queue.locked_consume( commands );
 		
 		if( !commands.size()){
 
@@ -284,13 +284,13 @@ __inline void flushConsoleBuffer(){
 
 	std::string s;
 
-	os_buffer_err.locked_give(s);
+	os_buffer_err.locked_consume(s);
 	if( s.length()){
 		json j = {{"type", "console"}, {"message", s.c_str()}, {"flag", 1}};
 		writeJSON( j );
 	}
 
-	os_buffer.locked_give(s);
+	os_buffer.locked_consume(s);
 	if( s.length()){
 		json j = {{"type", "console"}, {"message", s.c_str()}, {"flag", 0}};
 		writeJSON( j );
@@ -320,7 +320,7 @@ void async_thread_loop_callback( uv_async_t *handle ){
 	// callback.
 	
 	std::vector < json > messages;
-	response_queue.locked_give_all(messages);
+	response_queue.locked_consume(messages);
 	
 	if( messages.size() == 0 ){
 		
@@ -502,7 +502,7 @@ int main( int argc, char **argv ){
 	std::vector< json > commands;
 	while( true ){
 		uv_cond_wait( &init_condition, &init_condition_mutex );	
-		command_queue.locked_give_all( commands );
+		command_queue.locked_consume( commands );
 		if( commands.size() > 0 ) break;
 	}
 

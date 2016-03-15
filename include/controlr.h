@@ -58,7 +58,7 @@ public:
 		uv_mutex_unlock( &mutex );
 	}
 
-	void locked_give( std::string &target ){
+	void locked_consume( std::string &target ){
 		this->lock();
 		target = this->str();
 		this->str("");
@@ -106,7 +106,7 @@ public:
 		return count;
 	}
 
-	void locked_give_all( std::vector < T > &target ){
+	void locked_consume( std::vector < T > &target ){
 		this->lock();
 		target = (std::vector<T>)(*this);
 		this->clear();
