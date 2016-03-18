@@ -24,6 +24,9 @@
 #include "controlr_common.h"
 #include "controlr_rinterface.h"
 
+using std::cerr;
+using std::endl;
+
 extern "C" {
 
 	// instead of the "dlldo1" loop -- this one seems to be stable in setjmp/longjmp call
@@ -82,15 +85,15 @@ int R_AskYesNoCancel(const char *question) {
 	return (IDYES == ::MessageBoxA(0, question, "Message from R", MB_YESNOCANCEL)) ? 1 : -1;
 }
 
+/** function pointer cannot be null */
+void R_CallBack(void){}
 
-void R_CallBack(void)
-{
-}
+/** function pointer cannot be null */
+void R_Busy(int which){}
 
-void R_Busy(int which)
-{
-}
-
+/**
+ * break; on windows this is polled
+ */
 void r_set_user_break( const char *msg ) {
 
 	// FIXME: synchronize (actually that's probably not helpful, unless we
@@ -118,8 +121,7 @@ int r_loop( const char *rhome, const char *ruser, int argc, char ** argv ){
 
 	sprintf_s(Rversion, 25, "%s.%s", R_MAJOR, R_MINOR);
 	if (strcmp(getDLLVersion(), Rversion) != 0) {
-		// fprintf(stderr, "Error: R.DLL version does not match\n");
-		// exit(1);
+		cerr << "Error: R.DLL version does not match" << endl;
 		return -1;
 	}
 
