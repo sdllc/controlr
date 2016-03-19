@@ -27,7 +27,7 @@
 "use strict"
 
 // switching to bluebird promises (at least temporarily)
-const Promise = require("bluebird");
+// const Promise = require("bluebird");
 
 const fs = require( "fs" );
 const os = require( "os");

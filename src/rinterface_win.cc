@@ -144,7 +144,8 @@ int r_loop( const char *rhome, const char *ruser, int argc, char ** argv ){
 	Rp->ShowMessage = R_AskOk;
 	Rp->YesNoCancel = R_AskYesNoCancel;
 
-	Rp->RestoreAction = SA_RESTORE; // FIXME -- should we handle this in code?
+	// we can handle these in code, more flexible
+	Rp->RestoreAction = SA_NORESTORE; 
 	Rp->SaveAction = SA_NOSAVE;
 	
 	R_SetParams(Rp);
