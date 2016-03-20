@@ -439,24 +439,25 @@ var ControlR = function(){
 	
     /** shutdown and clean up */    
     this.shutdown = function(){
-		//if( interval ){
-		//	clearInterval( interval );
-		//	interval = undefined;
-		//}
-        if( socket ){
-            exec_packet({ command: 'rshutdown' }).then( function(){
-                close();    
-                server = null;
-            }).catch(function(e){
-                close();    
-                server = null;
-            });
-        }
-        else if( server ){
-            close();
-            server = null;
-        }
-        else throw( "invalid state" );
+		return new Promise( function( resolve, reject ){
+			if( socket ){
+				exec_packet({ command: 'rshutdown' }).then( function(){
+					close();    
+					server = null;
+					resolve();
+				}).catch(function(e){
+					close();    
+					server = null;
+					reject(e);
+				});
+			}
+			else if( server ){
+				close();
+				server = null;
+				resolve();
+			}
+			else reject( "invalid state" );
+		});
     };
 
     /**
