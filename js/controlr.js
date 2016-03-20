@@ -290,7 +290,7 @@ var ControlR = function(){
 						|| packet.type === "pager" ){
 				instance.emit( packet.type, packet.data );
 			}
-			else if( packet.type === "watch" ){
+			else if( packet.type === "locals" || packet.type === "watch" ){
 					
 				// we could actually handle this one here -- not
 				// sure if it makes sense or if we should let the 
@@ -303,6 +303,11 @@ var ControlR = function(){
 				
 				console.info( "debug packet", packet );
 				debug_op_pending = true;
+				
+			}
+			else if( opts.permissive ){
+				
+				instance.emit( packet.type, packet.data );
 				
 			}
 			else console.info( "unexpected packet type", packet );

@@ -4,5 +4,5 @@
 	"keywords": ["R" ],
 	"name": "controlr",
 	"version": "0.3.3",
-	"main": "js/controlr.js",
+	"main": "js/controlr.js"
 }
