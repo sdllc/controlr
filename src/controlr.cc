@@ -516,9 +516,11 @@ int main( int argc, char **argv ){
 			if (j.find("rhome") != j.end()) rhome = j["rhome"].get<std::string>();
 
 			char nosave[] = "--no-save";
-			char* args[] = { argv[0], nosave };
+			char norestore[] = "--no-restore";
+			
+			char* args[] = { argv[0], nosave, norestore };
 			initialized = true;
-			r_loop( rhome.c_str(), "", 2, args );
+			r_loop( rhome.c_str(), "", 3, args );
 		
 		}
 	}
