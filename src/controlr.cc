@@ -36,7 +36,6 @@ locked_vector < json > response_queue;
 locked_vector < json > input_queue;
 
 uv_async_t async_on_thread_loop;
-
 uv_timer_t console_buffer_timer;
 
 uv_cond_t input_condition;
@@ -234,8 +233,10 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 	
 }
 
-
-/** callback from R */
+/** 
+ * callback from R 
+ * @param buffered: does nothing at the moment
+ */
 void direct_callback( const char *channel, const char *data, bool buffered ){
 	
 	// FIXME: don't do this twice
@@ -535,5 +536,7 @@ int main( int argc, char **argv ){
 	cout << "process exit" << endl << flush;
 
 	return 0;
+
 }
+
 
