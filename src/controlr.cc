@@ -34,12 +34,13 @@ uv_stream_t *client;
 
 locked_vector < json > command_queue;
 locked_vector < json > response_queue;
-locked_vector < json > buffered_message_queue;
+//locked_vector < json > buffered_message_queue;
 locked_vector < json > input_queue;
 
 uv_async_t async_on_thread_loop;
 
 uv_timer_t console_buffer_timer;
+//uv_timer_t console_buffer_flush_timer;
 
 uv_cond_t input_condition;
 uv_mutex_t input_condition_mutex;
@@ -49,10 +50,13 @@ uv_mutex_t init_condition_mutex;
 
 // FIXME: tune
 // what is the unit? ns?
-#define CONSOLE_BUFFER_EVENTS_TICK (1000 * 1000 * 100)
+
+#define CONSOLE_BUFFER_EVENTS_TICK_MS 75
+#define CONSOLE_BUFFER_EVENTS_TICK (1000 * 1000 * CONSOLE_BUFFER_EVENTS_TICK_MS)
 
 // FIXME: tune
 #define CONSOLE_BUFFER_TICK 25
+//#define CONSOLE_BUFFER_FLUSH 500
 
 bool closing_sequence = false;
 bool initialized = false;
@@ -78,13 +82,17 @@ void write_callback(uv_write_t *req, int status) ;
 
 __inline void push_response( json &j, bool buffered = false ){
 	
-	//if( buffered ){
-	//	buffered_message_queue.locked_push_back( j );
-	//}
-	//else 
+	/*
+	if( buffered )
+	{
+		buffered_message_queue.locked_push_back( j );
+	}
+	else 
+	*/
 	{
 		response_queue.locked_push_back( j );
 	}
+	
 	uv_async_send( &async_on_thread_loop );
 
 }
@@ -312,6 +320,7 @@ void console_timer_callback( uv_timer_t* handle ){
 
 	flushConsoleBuffer();	
 
+	/*
 	// also flush queued messages, if any	
 
 	std::vector < json > messages;
@@ -320,7 +329,8 @@ void console_timer_callback( uv_timer_t* handle ){
 			iter != messages.end(); iter++ ){
 		writeJSON( *iter );
 	}
-
+	*/
+	
 }
 
 /**
@@ -345,11 +355,11 @@ void async_thread_loop_callback( uv_async_t *handle ){
 		// presumably that means it's console-only.
 		// FIXME: that might change if we start 
 		// doing debug stuff... 
-		
+	
 		uv_timer_stop( &console_buffer_timer );
 		uv_timer_start( &console_buffer_timer, console_timer_callback, CONSOLE_BUFFER_TICK, 0 );
 		return;
-				
+						
 	}
 
 	// write this FIRST.  that's in the event we bring back 
@@ -363,13 +373,14 @@ void async_thread_loop_callback( uv_async_t *handle ){
 		writeJSON( *iter );
 	}
 
+	/*
 	messages.clear();
 	buffered_message_queue.locked_consume(messages);
 	for( std::vector< json >::iterator iter = messages.begin();
 			iter != messages.end(); iter++ ){
 		writeJSON( *iter );
 	}
-	
+	*/
 }
 
 /**
@@ -456,6 +467,7 @@ void connect_cb(uv_connect_t* req, int status){
 	if( !status ){
 		if( uv_is_readable( client )){
 			uv_read_start( client, alloc_buffer, read_cb );
+			//uv_timer_start( &console_buffer_flush_timer, console_timer_callback, CONSOLE_BUFFER_FLUSH, CONSOLE_BUFFER_FLUSH );
 		}
 		else cerr << "ERR: client not readable" << endl;
 	}
@@ -474,6 +486,7 @@ void thread_func( void *data ){
 	uv_loop_init( &threadloop );
 	uv_async_init( &threadloop, &async_on_thread_loop, async_thread_loop_callback );
 	uv_timer_init( &threadloop, &console_buffer_timer );
+	//uv_timer_init( &threadloop, &console_buffer_flush_timer );
 
 	// connect either tcp or port (named pipe)
 
@@ -498,6 +511,7 @@ void thread_func( void *data ){
 	
 	uv_loop_close(&threadloop);
 	uv_close( (uv_handle_t*)&console_buffer_timer, NULL );
+	//uv_close( (uv_handle_t*)&console_buffer_flush_timer, NULL );
 	
 }
 

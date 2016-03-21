@@ -118,6 +118,5 @@ protected:
 		
 };
 
-
 #endif // #ifndef __CONTROLR_H
 
