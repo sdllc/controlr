@@ -34,6 +34,7 @@ uv_stream_t *client;
 
 locked_vector < json > command_queue;
 locked_vector < json > response_queue;
+locked_vector < json > buffered_message_queue;
 locked_vector < json > input_queue;
 
 uv_async_t async_on_thread_loop;
@@ -75,9 +76,15 @@ locked_ostringstream os_buffer_err;
 
 void write_callback(uv_write_t *req, int status) ;
 
-__inline void push_response( json &j ){
+__inline void push_response( json &j, bool buffered = false ){
 	
-	response_queue.locked_push_back( j );
+	//if( buffered ){
+	//	buffered_message_queue.locked_push_back( j );
+	//}
+	//else 
+	{
+		response_queue.locked_push_back( j );
+	}
 	uv_async_send( &async_on_thread_loop );
 
 }
@@ -235,7 +242,7 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 
 
 /** callback from R */
-void direct_callback( const char *channel, const char *data ){
+void direct_callback( const char *channel, const char *data, bool buffered ){
 	
 	// FIXME: don't do this twice
 	// FIXME: proper handling (at least for debug purposes)
@@ -243,7 +250,7 @@ void direct_callback( const char *channel, const char *data ){
 	try {		
 		json j = json::parse(data);
 		json response = {{"type", channel}, {"data", j}};
-		push_response( response );
+		push_response( response, buffered );
 	}
 	catch( ... ){
 		cout << "JSON parse exception (unknown)" << endl;
@@ -302,7 +309,18 @@ __inline void flushConsoleBuffer(){
  * buffered write for console output.  
  */
 void console_timer_callback( uv_timer_t* handle ){
+
 	flushConsoleBuffer();	
+
+	// also flush queued messages, if any	
+
+	std::vector < json > messages;
+	buffered_message_queue.locked_consume(messages);
+	for( std::vector< json >::iterator iter = messages.begin();
+			iter != messages.end(); iter++ ){
+		writeJSON( *iter );
+	}
+
 }
 
 /**
@@ -340,6 +358,13 @@ void async_thread_loop_callback( uv_async_t *handle ){
 
 	flushConsoleBuffer();
 	
+	for( std::vector< json >::iterator iter = messages.begin();
+			iter != messages.end(); iter++ ){
+		writeJSON( *iter );
+	}
+
+	messages.clear();
+	buffered_message_queue.locked_consume(messages);
 	for( std::vector< json >::iterator iter = messages.begin();
 			iter != messages.end(); iter++ ){
 		writeJSON( *iter );

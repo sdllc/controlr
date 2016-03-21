@@ -75,12 +75,12 @@
  * callback method for module code (the js client lib).  takes 
  * JSON string (text).
  */
-void direct_callback_json( const char *channel, const char *json );
+void direct_callback_json( const char *channel, const char *json, bool buffer );
 
 /**
  * callback method for module code (the js client lib).  takes SEXP.
  */
-void direct_callback_sexp( const char *channel, SEXP sexp );
+void direct_callback_sexp( const char *channel, SEXP sexp, bool buffer );
 
 #endif // #ifndef __CONTROLR_COMMON_H
 

@@ -67,7 +67,7 @@ nlohmann::json& get_srcref( nlohmann::json &srcref );
 /** 
  * handler for messages coming from the R side (js client package)
  */
-void direct_callback( const char *channel, const char *data );
+void direct_callback( const char *channel, const char *data, bool buffer );
 
 /**
  * console output handler

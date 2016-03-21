@@ -138,7 +138,6 @@ SEXP exec_r(std::vector < std::string > &vec, int *err, ParseStatus *pStatus, bo
 	}
 
 	UNPROTECT(2);
-//	::ReleaseMutex(muxExecR);
 
 	return ans;
 
@@ -191,8 +190,6 @@ json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array ){
 		UNPROTECT(1);
 	}
 	else {
-		
-		// cout << " + intrinsic; type " << rtype << ", len " << len << endl;
 		
 		bool attrs = false;
 		bool names = false; // separate from other attrs
@@ -386,12 +383,12 @@ json& exec_to_json( json &result,
 	return result;
 }
 
-void direct_callback_json( const char *channel, const char *json ){
-	direct_callback( channel, json );
+void direct_callback_json( const char *channel, const char *json, bool buffer ){
+	direct_callback( channel, json, buffer );
 }
 
-void direct_callback_sexp( const char *channel, SEXP sexp ){
+void direct_callback_sexp( const char *channel, SEXP sexp, bool buffer ){
 	json json;
 	SEXP2JSON( sexp, json );
-	direct_callback( channel, json.dump().c_str());
+	direct_callback( channel, json.dump().c_str(), buffer);
 }
