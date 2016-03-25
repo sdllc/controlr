@@ -1,12 +1,12 @@
-ControlR
+controlR
 ========
 
-ControlR is a [node][1] module for running commands in an external [R][2] process.
+controlR is a [node][1] module for running commands in an external [R][2] process.
 
 License
 -------
 
-ControlR is copyright (c) 2016 Structured Data LLC and released under the MIT license.  
+controlR is copyright (c) 2016 Structured Data LLC and released under the MIT license.  
 See source files for license details.
 
 Rationale
@@ -27,11 +27,11 @@ and developers, and (via [electron][6], among other platforms) supports desktop
 applications as well as services.
 
 Javascript is not for everything -- that's why we want to use R in the first place.
-But node provides a great environment for building applications.  ControlR is built to
+But node provides a great environment for building applications.  controlR is built to
 be glue code that lets you build your application in javascript, your data model in
 R, and connect the two.
 
-Moreover because ControlR runs R in an external process, you have benefits beyond
+Moreover because controlR runs R in an external process, you have benefits beyond
 what you get by embedding in a C++ application -- for example, you can monitor
 execution and kill off runaway processes; or you can start multiple instances and
 run code in parallel.
@@ -40,14 +40,14 @@ The child process will run R's event loop, meaning it supports things like R's h
 help server.  This is probably only useful for desktop applications.
 
 One further note on rationale -- for our purposes we did not want to modify the R
-source code in any way.  ControlR binds against the R shared libraries (DLLs on
+source code in any way.  controlR binds against the R shared libraries (DLLs on
 windows) at runtime.  This way we can guarantee fidelity with the standard R
 interpreter, and building against updated versions of R is trivial.
 
 What it is not
 --------------
 
-ControlR is not designed for, nor is it suitable for, running a web service.  It is
+controlR is not designed for, nor is it suitable for, running a web service.  It is
 designed to support a single client connection; and it adds no limitations on what
 running R code does to the host system.  
 
@@ -67,7 +67,7 @@ and talk to them from a single client or from multiple logical clients.
 Connection
 ----------
 
-ControlR consists of a javascript module, for use with node; and a standalone executable,
+controlR consists of a javascript module, for use with node; and a standalone executable,
 which acts as a host for R (via the shared library/dll).  Communication between node and
 the R process runs over a domain socket (named pipe on Windows) or a TCP socket.  All
 messages transferred between the processes are JSON formatted.
@@ -75,7 +75,7 @@ messages transferred between the processes are JSON formatted.
 Interface
 ---------
 
-ControlR connects to and talks to a single R instance.  Within the interface there are
+controlR connects to and talks to a single R instance.  Within the interface there are
 two separate "channels" for communication.  In the API these are generally referred to
 as `exec` and `internal`.
 
@@ -104,7 +104,7 @@ and then execute.
 Third-Party Dependencies
 ------------------------
 
-ControlR depends on R and node.  See build instructions.  ControlR futher depends on
+controlR depends on R and node.  See build instructions.  controlR futher depends on
 [libuv][4] and [nlohmann::json][5], used under license and included in source distributions.
 See the individual projects for license details.  
 
@@ -131,19 +131,19 @@ to the initialization method.  Remember to escape backslashes in Windows paths.
 
 ```javascript
 
-const ControlR = require( "controlr" )
+const controlR = require( "controlR" )
 
-var controlr = new ControlR();
+var controlR = new controlR();
 
-controlr.init({
+controlR.init({
     rhome: "/path/to/R-3.2.3"
 }).then( function(){
 	console.info( "initialized OK" );
-	return controlr.internal( "1+1" );
+	return controlR.internal( "1+1" );
 }).then( function(rslt){
 	console.info( "result:", rslt );
 	console.info( "shutting down" );
-	return controlr.shutdown();
+	return controlR.shutdown();
 }).then( function(){
 	console.info( "shutdown complete" );
 }).catch( function(e){
