@@ -1,8 +1,7 @@
 ControlR
 ========
 
-ControlR is a [node][1] module for starting, running, and executing commands in, an 
-external [R][2] process.
+ControlR is a [node][1] module for running commands in an external [R][2] process.
 
 License
 -------
@@ -14,7 +13,28 @@ Rationale
 ---------
 
 R is great for data processing, in particular because of the excellent libraries 
-developed by [the user community][3].  
+developed by [the user community][3].  Once you have developed your data model, you
+can run it through the R shell or GUI provided.  Beyond that, it's pretty easy to
+embed R in a C/C++ application.  You can build a full-featured desktop application
+or service this way.
+
+Requiring either the R shell or a C++ host application can be a bit limiting, though.
+Modern applications tend to use a variety of platforms, languages, and environments
+to solve different problems.  Javascript, and in particular javascript through Node,
+has become the de facto language for modern application development.  It's not for 
+everything; but it solves a lot of problems, provides a complex ecosystem of libraries
+and developers, and (via [electron][6], among other platforms) supports desktop 
+applications as well as services.
+
+Javascript is not for everything -- that's why we want to use R in the first place.
+But node provides a great environment for building applications.  ControlR is built to
+be glue code that lets you build your application in javascript, your data model in
+R, and connect the two.
+
+Moreover because ControlR runs R in an external process, you have benefits beyond 
+what you get by embedding in a C++ application -- for example, you can monitor 
+execution and kill off runaway processes; or you can start multiple instances and 
+run code in parallel.
 
 What it is not
 --------------
@@ -47,12 +67,11 @@ as `exec` and `internal`, with some variants supporting delayed execution.
 
 The `internal` channel uses the embedded R interface.  This is generally what you want
 if you want to execute some R code and get a result back.  For most purposes this is 
-sufficient to build an R application.
-
-The `exec` channel talks to R through R's REPL loop -- much as if you were using an R 
-shell.  Why do this at all? to support debugging and R's concept of a `browser` -- a
-window into executing code.  Without modifying R code, this is the only way to support
-debugging.  We can also use it to build our R shell (more on that later). 
+sufficient to build an R application.  The `exec` channel talks to R through R's REPL 
+loop -- much as if you were using an R shell.  Why do this at all? to support debugging 
+and R's concept of a `browser` -- a window into executing code.  Without modifying R code, 
+this is the only way to support debugging.  We can also use it to build our R shell 
+(more on that later). 
 
 So the `internal` channel executes code and returns a result, as a javascript object 
 (JSON on the wire).  The `exec` channel executes code in a shell context, and (possibly)
@@ -68,13 +87,22 @@ Calls to `exec` or `internal` will fail if another call is in process.  The modu
 provides `queued_exec` and `queued_internal` methods which will wait for a change in state
 and then execute.
 
-See Also
---------
+Third-Party Dependencies
+------------------------
+
+ControlR depends on R and node.  See build instructions.  ControlR futher depends on 
+[libuv][4] and [nlohmann:json][5], used under license and included in source distributions.  
+See the individual projects for license details.  
+
+Related
+-------
 
 [Rserve][13]
-
 
 [1]: https://nodejs.org
 [2]: https://www.r-project.org/
 [3]: https://cran.r-project.org/
-[3]: https://rforge.net/Rserve/
+[4]: https://github.com/libuv/libuv
+[5]: https://github.com/nlohmann/json
+[6]: http://electron.atom.io/
+[13]: https://rforge.net/Rserve/
