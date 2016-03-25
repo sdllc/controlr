@@ -36,11 +36,22 @@ what you get by embedding in a C++ application -- for example, you can monitor
 execution and kill off runaway processes; or you can start multiple instances and 
 run code in parallel.
 
+One further note on rationale -- for our purposes we did not want to modify the R 
+source code in any way.  ControlR binds against the R shared libraries (DLLs on 
+windows) at runtime.  This way we can guarantee fidelity with the standard R 
+interpreter, and building against updated versions of R is trivial. 
+
 What it is not
 --------------
 
 ControlR is not designed for, nor is it suitable for, running a web service.  It is
-designed to support a single client connection.  
+designed to support a single client connection; and it adds no limitations on what 
+running R code does to the host system.  
+
+R has full access to the system (subject to the host process' permissions) and the
+interface imposes no security restrictions on top of this.  Therefore exposing the
+R interface to outside users is a significant security risk, even if the host process 
+is running with minimal permissions.  
 
 R processes maintain internal state.  If multiple clients connect to the same running
 instance, each client will have access to and can modify that state.  For some purposes 
@@ -48,7 +59,7 @@ this is immaterial; but for our purposes this is not desirable.  Therefore there
 tight binding between a single client and a single R process.  
 
 On the other hand, there is no reason you can't run multiple R processes at the same time, 
-and talk to them from multiple individual clients.
+and talk to them from a single client or from multiple logical clients.
 
 Connection
 ----------
@@ -63,7 +74,7 @@ Interface
 
 ControlR connects to and talks to a single R instance.  Within the interface there are 
 two separate "channels" for communication.  In the API these are generally referred to
-as `exec` and `internal`, with some variants supporting delayed execution.
+as `exec` and `internal`.
 
 The `internal` channel uses the embedded R interface.  This is generally what you want
 if you want to execute some R code and get a result back.  For most purposes this is 
