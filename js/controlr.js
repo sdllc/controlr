@@ -387,20 +387,6 @@ var ControlR = function(){
 		write_packet( socket, { command: 'break', msg: msg });
 	};
 
-	this.debug_command = function( data ){
-		if( debug_op_pending ){
-			debug_op_pending = false;
-			write_packet( socket, { command: 'debug', data: data } );
-		}
-	};
-	
-	this.debug_internal = function( commands ){
-		if( debug_op_pending ){
-			debug_op_pending = false;
-			write_packet( socket, { command: 'debug', internal: commands } );
-		}
-	};
-
 	/** 
 	 * execute a command or, if busy, queue it up for execution.
 	 * key is a field which is matched against existing keys.  if set, and 
@@ -491,7 +477,7 @@ var ControlR = function(){
 
 					check_port( start_port, host, end_port - start_port ).then(function(port){
 						args = [host, port];
-   		         server = net.createServer().listen( port, host, connect_callback.bind( this, opts, args, resolve, reject ));
+						server = net.createServer().listen( port, host, connect_callback.bind( this, opts, args, resolve, reject ));
 					}).catch( function(e){
 						reject( e );
 					});
@@ -500,7 +486,7 @@ var ControlR = function(){
 				else {
 					socket_file = create_pipe_name();
 					args = [socket_file];
-	   	      server = net.createServer().listen( socket_file, connect_callback.bind( this, opts, args, resolve, reject ));
+					server = net.createServer().listen( socket_file, connect_callback.bind( this, opts, args, resolve, reject ));
 				}
 				
         });
