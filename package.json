@@ -3,6 +3,10 @@
 	"description": "R process module",
 	"keywords": [ "R" ],
 	"name": "controlr",
+	"repository": {
+    "type": "git",
+    "url": "https://github.com/sdllc/controlr.git"
+  },
 	"version": "1.4.2",
 	"main": "js/controlr.js"
 }
