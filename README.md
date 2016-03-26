@@ -120,7 +120,7 @@ Then use `npm` or `node-gyp` to build.
 
 ```
 > export R_HOME=/path/to/R-3.2.3
-> npm install
+> npm install controlr
 ```
 
 Example
