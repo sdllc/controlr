@@ -101,6 +101,8 @@ Calls to `exec` or `internal` will fail if another call is in process.  The modu
 provides `queued_exec` and `queued_internal` methods which will wait for a change in state
 and then execute.
 
+See the `js/` directory for API and event documentation.
+
 Third-Party Dependencies
 ------------------------
 
