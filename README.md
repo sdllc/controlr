@@ -131,19 +131,19 @@ to the initialization method.  Remember to escape backslashes in Windows paths.
 
 ```javascript
 
-const controlR = require( "controlR" )
+const ControlR = require( "controlr" )
 
-var controlR = new controlR();
+var controlr = new ControlR();
 
-controlR.init({
+controlr.init({
     rhome: "/path/to/R-3.2.3"
 }).then( function(){
 	console.info( "initialized OK" );
-	return controlR.internal( "1+1" );
+	return controlr.internal( "1+1" );
 }).then( function(rslt){
 	console.info( "result:", rslt );
 	console.info( "shutting down" );
-	return controlR.shutdown();
+	return controlr.shutdown();
 }).then( function(){
 	console.info( "shutdown complete" );
 }).catch( function(e){
