@@ -36,7 +36,7 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
-json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array = true );
+json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array = true, std::vector < SEXP > envir_list = std::vector < SEXP > () );
 
 extern "C" {
 	extern void Rf_PrintWarnings();
@@ -143,9 +143,7 @@ SEXP exec_r(std::vector < std::string > &vec, int *err, ParseStatus *pStatus, bo
 
 }
 
-
-
-json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array ){
+json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array, std::vector < SEXP > envir_list ){
 
 	jresult.clear(); // jic
 
@@ -165,29 +163,51 @@ json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array ){
 	// environment
 	else if( Rf_isEnvironment( sexp )){
 		
-		int err;
-		std::string strname;
-		jresult["$type"] = "environment";
-		SEXP names = PROTECT(R_tryEval(Rf_lang2(R_NamesSymbol, sexp), R_GlobalEnv, &err));
-		if (!err && names != R_NilValue) {
-			int len = Rf_length(names);
-			for (int c = 0; c < len; c++)
-			{
-				SEXP name = STRING_ELT(names, c);
-				const char *tmp = translateChar(name);
-				if (tmp[0]){
-					strname = tmp;
-					SEXP elt = PROTECT(R_tryEval(Rf_lang2(Rf_install("get"), Rf_mkString(tmp)), sexp, &err));
-					if( !err ){
-						json jsonelt;
-						SEXP2JSON( elt, jsonelt );
-						jresult[strname] = jsonelt; 
-					}
-					UNPROTECT(1);
-				} 
+		// make sure this is not in the list; if it is, don't parse it as that 
+		// will ultimately recurse
+
+		bool found = false;
+		for( std::vector < SEXP > :: iterator iter = envir_list.begin(); iter != envir_list.end(); iter++ ){
+			if( *iter == sexp ){
+				jresult["$type"] = "environment (recursive)";
+				found = true;
+				break;
 			}
 		}
-		UNPROTECT(1);
+
+		if( !found ){
+			
+			int err;
+			std::string strname;
+			jresult["$type"] = "environment";
+			SEXP names = PROTECT(R_tryEval(Rf_lang2(R_NamesSymbol, sexp), R_GlobalEnv, &err));
+			envir_list.push_back( sexp );
+
+			if (!err && names != R_NilValue) {
+				int len = Rf_length(names);
+				
+				for (int c = 0; c < len; c++)
+				{
+					SEXP name = STRING_ELT(names, c);
+					const char *tmp = translateChar(name);
+
+					if (tmp[0]){
+						strname = tmp;
+						SEXP elt = PROTECT(R_tryEval(Rf_lang2(Rf_install("get"), Rf_mkString(tmp)), sexp, &err));
+						if( !err ){
+							
+							json jsonelt;
+							SEXP2JSON( elt, jsonelt, true, envir_list );
+							jresult[strname] = jsonelt; 
+							
+						}
+						UNPROTECT(1);
+					} 
+				}
+			}
+			UNPROTECT(1);
+			
+		}
 	}
 	else {
 		
@@ -204,14 +224,14 @@ json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array ){
 		SEXP dimnames = getAttrib(sexp, R_DimNamesSymbol);
 		if( dimnames && TYPEOF(dimnames) != 0 ){
 			json jdimnames;
-			jresult["$dimnames"] = SEXP2JSON( dimnames, jdimnames );
+			jresult["$dimnames"] = SEXP2JSON( dimnames, jdimnames, true, envir_list );
 			attrs = true;
 		}
 		
 		SEXP rnames = getAttrib(sexp, R_NamesSymbol);
 		json jnames;
 		if( rnames && TYPEOF(rnames) != 0 ){
-			SEXP2JSON( rnames, jnames, false );
+			SEXP2JSON( rnames, jnames, false, envir_list );
 			names = true;
 		}
 		
@@ -252,7 +272,7 @@ json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array ){
 			SEXP levels = Rf_getAttrib(sexp, R_LevelsSymbol);
 			jresult["$type"] = "factor";
 			json jlevels;
-			jresult["$levels"] = SEXP2JSON(levels, jlevels);
+			jresult["$levels"] = SEXP2JSON(levels, jlevels, true, envir_list);
 			attrs = true;
 			for( int i = 0; i< len; i++ ){ vector.push_back( (INTEGER(sexp))[i] ); }
 		}
@@ -293,7 +313,7 @@ json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array ){
 			
 			for( int i = 0; i< len; i++ ){
 				json elt;
-				vector.push_back( SEXP2JSON( VECTOR_ELT(sexp, i), elt ));
+				vector.push_back( SEXP2JSON( VECTOR_ELT(sexp, i), elt, true, envir_list ));
 			}
 		}
 		else {
