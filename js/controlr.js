@@ -284,28 +284,17 @@ var ControlR = function(){
 			else if( packet.type === "graphics" 
 						|| packet.type === "system"  
 						|| packet.type === "browser"  
-						|| packet.type === "pager" ){
+						|| packet.type === "pager" 
+						|| packet.type === "locals"
+						|| packet.type === "watches"
+						|| packet.type === "file.watch" ){
 				instance.emit( packet.type, packet.data );
-			}
-			else if( packet.type === "locals" || packet.type === "watch" ){
-					
-				// we could actually handle this one here -- not
-				// sure if it makes sense or if we should let the 
-				// shell do it
-					
-				instance.emit( packet.type, packet.data );
-					
-			}
-			else if( packet.type === "debug" ){
-				
-				console.info( "debug packet", packet );
-				debug_op_pending = true;
-				
 			}
 			else if( opts.permissive ){
 				
-				instance.emit( packet.type, packet.data );
+				// FIXME: log this packet type?
 				
+				instance.emit( packet.type, packet.data );
 			}
 			else console.info( "unexpected packet type", packet );
         }
