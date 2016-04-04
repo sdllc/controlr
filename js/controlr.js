@@ -287,6 +287,7 @@ var ControlR = function(){
 						|| packet.type === "pager" 
 						|| packet.type === "locals"
 						|| packet.type === "watches"
+						|| packet.type === "progress.bar"
 						|| packet.type === "file.watch" ){
 				instance.emit( packet.type, packet.data );
 			}
