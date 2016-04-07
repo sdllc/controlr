@@ -371,6 +371,7 @@ json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array, std::vector < SE
 			}
 			if( attrs ) jresult["$data"] = hash;
 			else jresult["$type"] = rtype;
+			
 		}
 		else {
 			if( attrs ){
@@ -378,6 +379,14 @@ json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array, std::vector < SE
 			}
 			else if( len > 1 || !compress_array ) jresult = vector;
 			else jresult = vector[0];
+		}
+	
+		if( names || attrs ){
+			SEXP sClass = getAttrib( sexp, R_ClassSymbol );
+			if( sClass && !Rf_isNull( sClass )){
+				json jClass;
+				jresult["$class"] = SEXP2JSON( sClass, jClass, true );
+			}
 		}
 				
 	}
