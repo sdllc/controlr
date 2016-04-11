@@ -521,6 +521,15 @@ var ControlR = function(){
 		// then create the child
 		var proc = start_child_process( opts, args );
 
+		proc.on( 'close', function(){
+			if( notify ){
+				if( opts.debug ) console.info( "Close and pending notify..." );
+				notify(0);
+				close();
+				server = null;
+			}
+		});
+
 		// originally we just looked at the streams for debug.  however it turns
 		// out that, at least on linux, some useful information is dumped here --
 		// in particular, build commands when installing packages.  so we probably

@@ -480,6 +480,17 @@ void thread_func( void *data ){
 	
 }
 
+void exit_on_error( const char *msg ){
+	
+	json err = {{"type", "error"}};
+	if( msg ) err["message"] = msg;
+	
+	closing_sequence = true;
+	initialized = false;
+	
+	push_response( err );
+}
+
 int main( int argc, char **argv ){
 
 	if( argc <= 1 )
@@ -524,16 +535,20 @@ int main( int argc, char **argv ){
 			
 			char* args[] = { argv[0], nosave, norestore };
 			initialized = true;
-			r_loop( rhome.c_str(), "", 3, args );
+			if( r_loop( rhome.c_str(), "", 3, args )){
+				exit_on_error( "R loop failed" );
+			}
 		
 		}
 	}
 	
+	// cout << "waiting for exit..." << endl;
+	
 	uv_thread_join( &thread_id );
-	cout << "thread exited" << endl;
+	cout << "thread complete" << endl;
 	
 	uv_cond_destroy( &input_condition );
-	cout << "process exit" << endl << flush;
+	cout << "process complete" << endl << flush;
 
 	return 0;
 
