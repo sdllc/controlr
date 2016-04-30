@@ -285,6 +285,7 @@ var ControlR = function(){
 						|| packet.type === "system"  
 						|| packet.type === "browser"  
 						|| packet.type === "pager" 
+						|| packet.type === "preferences" 
 						|| packet.type === "locals"
 						|| packet.type === "watches"
 						|| packet.type === "progress.bar"
