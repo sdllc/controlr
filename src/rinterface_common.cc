@@ -234,6 +234,14 @@ json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array, std::vector < SE
 			SEXP2JSON( rnames, jnames, false, envir_list );
 			names = true;
 		}
+
+		SEXP rrownames = getAttrib(sexp, R_RowNamesSymbol);
+		if( rrownames && TYPEOF(rrownames) != 0 ){
+			json jrownames;
+			SEXP2JSON( rrownames, jrownames, false, envir_list );
+			attrs = true;
+			jresult["$rownames"] = jrownames;
+		}
 		
 		std::vector< json > vector;
 
@@ -369,7 +377,10 @@ json &SEXP2JSON( SEXP sexp, json &jresult, bool compress_array, std::vector < SE
 				}
 				(*target)[strname] = vector[i];
 			}
-			if( attrs ) jresult["$data"] = hash;
+			if( attrs ){	
+				jresult["$data"] = hash;	
+				jresult["$names"] = jnames;
+			} 
 			else jresult["$type"] = rtype;
 			
 		}
