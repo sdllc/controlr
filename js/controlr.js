@@ -251,6 +251,7 @@ var ControlR = function(){
     var read_callback = function( packet ){
 
         if( packet.type ){
+						
             if( packet.type === "response" ){
                 if( notify ) notify.call( this, packet );
             }
@@ -281,6 +282,15 @@ var ControlR = function(){
 				interval = setTimeout( flush_console, 50 );
 				*/
             }
+			
+			/*
+			
+			// FIXME: we can't keep creating new packet
+			// types and allowing them through.  either
+			// use the permissive setting and let in 
+			// everything, or use a secondary field to 
+			// identify useful packets. 
+			
 			else if( packet.type === "graphics" 
 						|| packet.type === "system"  
 						|| packet.type === "browser"  
@@ -292,6 +302,8 @@ var ControlR = function(){
 						|| packet.type === "file.watch" ){
 				instance.emit( packet.type, packet.data );
 			}
+			*/
+			
 			else if( opts.permissive ){
 				
 				// FIXME: log this packet type?
@@ -300,7 +312,7 @@ var ControlR = function(){
 			}
 			else console.info( "unexpected packet type", packet );
         }
-		  else console.info( "Packet missing type", packet );
+		else console.info( "Packet missing type", packet );
     };
 
     var close = function(){
