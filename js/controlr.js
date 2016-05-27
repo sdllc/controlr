@@ -282,28 +282,13 @@ var ControlR = function(){
 				interval = setTimeout( flush_console, 50 );
 				*/
             }
-			
-			/*
-			
-			// FIXME: we can't keep creating new packet
-			// types and allowing them through.  either
-			// use the permissive setting and let in 
-			// everything, or use a secondary field to 
-			// identify useful packets. 
-			
-			else if( packet.type === "graphics" 
-						|| packet.type === "system"  
-						|| packet.type === "browser"  
-						|| packet.type === "pager" 
-						|| packet.type === "preferences" 
-						|| packet.type === "locals"
-						|| packet.type === "watches"
-						|| packet.type === "progress.bar"
-						|| packet.type === "file.watch" ){
-				instance.emit( packet.type, packet.data );
+			else if( packet.type === "sync-request" ){
+				var response = null;
+				if( opts['sync-request'] ){
+					response = opts['sync-request'].call( this, packet.data );
+				}
+				write_packet( socket, { command: 'sync-response', response: response });
 			}
-			*/
-			
 			else if( opts.permissive ){
 				
 				// FIXME: log this packet type?

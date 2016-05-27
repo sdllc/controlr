@@ -254,6 +254,32 @@ void direct_callback( const char *channel, const char *data, bool buffered ){
 		
 }
 
+/**
+ * sync callback.  this will send out a message with the channel
+ * "sync-request"; the client MUST respond with something, even
+ * a null message, for the operation to complete.
+ */
+json sync_callback( const char *data, bool buffered ){
+
+	direct_callback( "sync-request", data, buffered );
+	std::vector < json > commands;
+
+	// FIXME: timeout?
+	
+	while( true ){
+		uv_cond_timedwait( &input_condition, &input_condition_mutex, CONSOLE_BUFFER_EVENTS_TICK ); 
+		input_queue.locked_consume( commands );
+		if( commands.size()) break;
+		if( initialized ) r_tick();
+	}
+	
+	if( !commands.size()) return nullptr;
+	json &command = commands[0];
+	if (command.find("response") == command.end()) return nullptr;	
+	return command["response"];
+	
+}
+
 /** 
  * callback on write op.  this class always allocates
  * buffers and stores them in data, so always free.

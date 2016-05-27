@@ -82,6 +82,11 @@ void direct_callback_json( const char *channel, const char *json, bool buffer );
  */
 void direct_callback_sexp( const char *channel, SEXP sexp, bool buffer );
 
+/**
+ * sync version (at least from R's perspective)
+ */
+SEXP direct_callback_sync( SEXP sexp, bool buffer );
+
 #endif // #ifndef __CONTROLR_COMMON_H
 
 

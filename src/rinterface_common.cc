@@ -428,7 +428,17 @@ void direct_callback_json( const char *channel, const char *json, bool buffer ){
 }
 
 void direct_callback_sexp( const char *channel, SEXP sexp, bool buffer ){
-	json json;
-	SEXP2JSON( sexp, json );
-	direct_callback( channel, json.dump().c_str(), buffer);
+	json j;
+	SEXP2JSON( sexp, j );
+	direct_callback( channel, j.dump().c_str(), buffer);
 }
+
+SEXP direct_callback_sync( SEXP sexp, bool buffer ){
+	json j, response;
+	SEXP2JSON( sexp, j );
+	response = sync_callback( j.dump().c_str(), buffer );
+	if( !response.is_string()) return R_NilValue;
+	std::string s = response;
+	return Rf_mkString( s.c_str());
+}
+

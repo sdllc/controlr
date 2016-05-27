@@ -53,6 +53,8 @@ int R_ReadConsole(const char *prompt, char *buf, int len, int addtohistory)
 		final_init = true;
 		R_RegisterCCallable("ControlR", "CallbackJSON", (DL_FUNC)direct_callback_json);
 		R_RegisterCCallable("ControlR", "CallbackSEXP", (DL_FUNC)direct_callback_sexp);
+		
+		R_RegisterCCallable("ControlR", "CallbackSync", (DL_FUNC)direct_callback_sync);
 	}
 
 	const char *cprompt = CHAR(STRING_ELT(GetOption1(install("continue")), 0));
