@@ -99,7 +99,7 @@ var create_pipe_name = function(){
 	var count = 0; // sanity
 	var pipe;
 	do {
-		if( process.platform.match( /win/ )){
+		if( process.platform.match( /^win/ )){
 			pipe = "\\\\.\\pipe\\r." + Math.round( 1e8 * Math.random());
 		}
 		else {
