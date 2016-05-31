@@ -51,7 +51,9 @@ var start_child_process = function( opts, args ){
 	var env = {}, file, ext = "";
 	for( var key in process.env ){ env[key] = process.env[key]; }
 
-	if( process.platform.match( /win/ )){
+	// d'oh darwin.  but really, win32?
+	
+	if( process.platform.match( /^win/ )){
 		env.R_HOME = opts.rhome;
 		env.PATH = path.join( opts.rhome, 'bin', 'x64')
 				+ ";" + path.join( opts.basedir ? opts.basedir : __dirname, "..", "build", "Release" )

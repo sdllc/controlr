@@ -40,6 +40,31 @@
 						'<!@($R_HOME/bin/R CMD config --ldflags)'
 					]
           	}],
+				['OS=="mac"', {
+					"sources": [ 
+						"src/rinterface_linux.cc"
+					],
+					"libraries": [
+						'-lR', '-lRblas', '../lib/osx/libuv.a'
+					],
+					"library_dirs!" : [ 
+						"./lib" 
+					],
+					"library_dirs" : [ 
+						'<!@(printf "%s/lib" "$R_HOME")',
+					],
+					"include_dirs" : [
+						'<!@(printf "%s/include" "$R_HOME")',
+						'<!@(printf "%s/src/extra/graphapp" "$R_HOME")'
+					],
+					"ldflags" : [
+						'<!@($R_HOME/bin/R CMD config --ldflags)'
+					],
+					"xcode_settings": {
+						'MACOSX_DEPLOYMENT_TARGET': '10.11',
+						'OTHER_CFLAGS': ["-std=c++11", "-stdlib=libc++", "-fexceptions"]
+					}
+          	}],
 				['OS=="win"', {
 					"sources": [ 
 						"src/rinterface_win.cc"
