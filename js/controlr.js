@@ -55,9 +55,17 @@ var start_child_process = function( opts, args ){
 	
 	if( process.platform.match( /^win/ )){
 		env.R_HOME = opts.rhome;
-		env.PATH = path.join( opts.rhome, 'bin', 'x64')
+				
+		// so apparently this was not working on DOS shells (including the windows "shell")
+		// with an upper-case PATH.  I'm not clear on whether this is per spec or not, but
+		// if you want it to work... (setting both jic)
+		
+		env.Path = path.join( opts.rhome, 'bin', 'x64')
 				+ ";" + path.join( opts.basedir ? opts.basedir : __dirname, "..", "build", "Release" )
 				+ ";" + process.env.PATH;
+				
+		env.PATH = env.Path;
+						
 		ext = ".exe";
 	}
 	else {
