@@ -437,8 +437,20 @@ SEXP direct_callback_sync( SEXP sexp, bool buffer ){
 	json j, response;
 	SEXP2JSON( sexp, j );
 	response = sync_callback( j.dump().c_str(), buffer );
-	if( !response.is_string()) return R_NilValue;
-	std::string s = response;
-	return Rf_mkString( s.c_str());
+	
+	if( response.is_string()){
+		std::string s = response;
+		return Rf_mkString( s.c_str());
+	}
+	if( response.is_number()){
+		double d = response;
+		return Rf_ScalarReal(d);
+	}
+	if( response.is_boolean()){
+		bool b = response;
+		return Rf_ScalarLogical(b ? 1 : 0);
+	}
+
+	return R_NilValue;
 }
 
