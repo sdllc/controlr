@@ -293,11 +293,26 @@ var ControlR = function(){
 				*/
             }
 			else if( packet.type === "sync-request" ){
-				var response = null;
-				if( opts['sync-request'] ){
-					response = opts['sync-request'].call( this, packet.data );
+				
+				// adding an async call for the "sync"" callback.  leaving
+				// the old version in place (for now)
+				
+				if( opts['sync-request-promise'] ){
+					opts['sync-request-promise'].call( this, packet.data )
+						.then( function( response ){
+							write_packet( socket, { command: 'sync-response', response: response });
+						}).catch( function( err ){
+							write_packet( socket, { command: 'sync-response', response: err });
+						});
 				}
-				write_packet( socket, { command: 'sync-response', response: response });
+				else {
+					var response = null;
+					if( opts['sync-request'] ){
+						response = opts['sync-request'].call( this, packet.data );
+					}
+					write_packet( socket, { command: 'sync-response', response: response });
+				}
+				
 			}
 			else if( opts.permissive ){
 				
