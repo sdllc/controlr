@@ -80,18 +80,27 @@ var start_child_process = function( opts, args ){
         console.info( "env:", env );
     }
     
-    var proc = child_process.spawn( file, args, { env: env });
+	var child_process_opts = { env: env };
+	if( typeof opts.redirect_stdio !== "undefined" ){
+		child_process_opts.stdio = opts.redirect_stdio ? 'pipe' : 'inherit';
+	}
+	
+    var proc = child_process.spawn( file, args, child_process_opts );
     
     if( opts.debug ){
     
-        proc.stdout.on('data', (data) => {
-            console.log(`child.stdout: ${data}`);
-        });
-
-        proc.stderr.on('data', (data) => {
-            console.log(`child.stderr: ${data}`);
-        });
-
+		if( proc.stdout ){
+			proc.stdout.on('data', (data) => {
+				console.log(`child.stdout: ${data}`);
+			});
+		}
+		
+		if( proc.stderr ){
+			proc.stderr.on('data', (data) => {
+				console.log(`child.stderr: ${data}`);
+			});
+		}
+		
         proc.on('close', (code) => {
             console.log(`child process exited with code ${code}`);
         });
@@ -559,14 +568,18 @@ var ControlR = function(){
 		// need to keep it.  note that this will definitely not work for remote
 		// processes, unless we send it explicitly.  but ok for now.
 		
-		proc.stdout.on('data', (data) => {
-            instance.emit( 'r.stdout', data );
-        });
-
-        proc.stderr.on('data', (data) => {
-            instance.emit( 'r.stderr', data );
-        });
-
+		if( proc.stdout ){
+			proc.stdout.on('data', (data) => {
+				instance.emit( 'r.stdout', data );
+			});
+		}
+		
+		if( proc.stderr ){
+			proc.stderr.on('data', (data) => {
+				instance.emit( 'r.stderr', data );
+			});
+		}
+		
 	 };
 	 
     // notwithstanding the above comment, you can init right away if you want
