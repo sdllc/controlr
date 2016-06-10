@@ -64,7 +64,6 @@ int R_ReadConsole( const char * prompt, unsigned char *buf, int len, int addtohi
 		final_init = true;
 		R_RegisterCCallable("ControlR", "CallbackJSON", (DL_FUNC)direct_callback_json);
 		R_RegisterCCallable("ControlR", "CallbackSEXP", (DL_FUNC)direct_callback_sexp);
-		
 		R_RegisterCCallable("ControlR", "CallbackSync", (DL_FUNC)direct_callback_sync);
 	}
 	
@@ -95,12 +94,14 @@ int r_loop( const char *rhome, const char *ruser, int argc, char ** argv ){
 	ptr_R_WriteConsoleEx = R_WriteConsoleEx;
 	ptr_R_ReadConsole = R_ReadConsole;   	
     ptr_R_ShowMessage = R_ShowMessage; // ??
-		
-//	ptr_R_ResetConsole = R_ResetConsole;
-//	ptr_R_FlushConsole = R_FlushConsole;
-//	ptr_R_ClearerrConsole = R_ClearErrConsole;
-//	ptr_R_ProcessEvents = R_ProcessEvents;
 
+	/*	
+	ptr_R_ResetConsole = R_ResetConsole;
+	ptr_R_FlushConsole = R_FlushConsole;
+	ptr_R_ClearerrConsole = R_ClearErrConsole;
+	ptr_R_ProcessEvents = R_ProcessEvents;
+	*/
+	
     R_Outputfile = NULL;
     R_Consolefile = NULL;
 	R_Interactive = TRUE;

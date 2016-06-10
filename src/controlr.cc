@@ -50,6 +50,9 @@ uv_mutex_t init_condition_mutex;
 #define CONSOLE_BUFFER_EVENTS_TICK_MS 75
 #define CONSOLE_BUFFER_EVENTS_TICK (1000 * 1000 * CONSOLE_BUFFER_EVENTS_TICK_MS)
 
+// heartbeat, as a function of tick 
+#define HEARTBEAT_TICK_COUNT (1000/CONSOLE_BUFFER_EVENTS_TICK_MS)
+
 // FIXME: tune
 #define CONSOLE_BUFFER_TICK 25
 
@@ -61,6 +64,8 @@ int i_port;
 
 locked_ostringstream os_buffer;
 locked_ostringstream os_buffer_err;
+
+int heartbeat_counter = 0;
 
 
 // from docs:
@@ -105,8 +110,24 @@ __inline void writeJSON( json &j, std::vector< char* > *pool = 0){
 	}
 		
 	uv_buf_t wrbuf = uv_buf_init(sz, len);
-	uv_write(req, client, &wrbuf, 1, write_callback);
 	
+	int rslt = uv_write(req, client, &wrbuf, 1, write_callback);
+
+	// we _should_ not get EAGAIN here, as it will be queued nonetheless.
+	// the function try_write returns EAGAINs.
+
+	if( rslt < 0 ){
+		
+		// cout << "uv_write err: " << rslt << ": " << uv_err_name(rslt) << endl;
+		
+		initialized = false;
+		closing_sequence = true;
+		
+		if( !uv_is_closing( (uv_handle_t*)client)) uv_close( (uv_handle_t*)client, NULL );
+		if( !uv_is_closing( (uv_handle_t*)&async_on_thread_loop)) uv_close( (uv_handle_t*)&async_on_thread_loop, NULL );
+		if( !uv_is_closing( (uv_handle_t*)&console_buffer_timer )) uv_close( (uv_handle_t*)&console_buffer_timer, NULL );
+
+	}
 }
 
 int input_stream_read( const char *prompt, char *buf, int len, int addtohistory, bool is_continuation ){
@@ -115,7 +136,7 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 	json response = {{"type", "prompt"}, {"data", {{"prompt", prompt}, {"continuation", is_continuation}, {"srcref", get_srcref(srcref)}}}};
 	push_response( response );
 
-	while( true ){
+	while( !closing_sequence ){
 	
 		// NOTE: from docs:
 		//
@@ -139,8 +160,19 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 			
 			if( initialized ) r_tick();
 			
+			// heartbeat: we are testing for dead sockets, which can
+			// leave processes running if the parent terminates without
+			// a clean shutdown.
+			
+			if( heartbeat_counter++ >= HEARTBEAT_TICK_COUNT ){
+				heartbeat_counter = 0;
+				heartbeat();
+			}
+			
 		}
 		else {
+
+			heartbeat_counter = 0; // toll
 
 			for( std::vector< json >::iterator iter = commands.begin(); iter != commands.end(); iter++ ){
 				json &j = *iter;
@@ -289,7 +321,8 @@ json sync_callback( const char *data, bool buffered ){
 void write_callback(uv_write_t *req, int status) {
 	
 	if (status < 0) {
-		fprintf(stderr, "Write error %s\n", uv_err_name(status));
+		// fprintf(stderr, "Write error %s\n", uv_err_name(status));
+		// FIXME: close?
 	}
 	if( req->data ) {
 		free( req->data );
@@ -297,15 +330,16 @@ void write_callback(uv_write_t *req, int status) {
 	free(req);
 	
 	if( closing_sequence ){
-		cout << "closing handles in write callback" << endl;
-		
-		uv_close( (uv_handle_t*)client, NULL );
-		uv_close( (uv_handle_t*)&async_on_thread_loop, NULL );
+		// cout << "closing handles in write callback" << endl;
+		if( !uv_is_closing( (uv_handle_t*)client)) uv_close( (uv_handle_t*)client, NULL );
+		if( !uv_is_closing( (uv_handle_t*)&async_on_thread_loop)) uv_close( (uv_handle_t*)&async_on_thread_loop, NULL );
 	}
 	
 }
 
 __inline void flushConsoleBuffer(){
+
+	if( closing_sequence ) return;
 
 	// is there anything on the console buffer?
 	// FIXME: need a better way to test this -- flag?
@@ -330,9 +364,7 @@ __inline void flushConsoleBuffer(){
  * buffered write for console output.  
  */
 void console_timer_callback( uv_timer_t* handle ){
-
 	flushConsoleBuffer();	
-	
 }
 
 /**
@@ -407,8 +439,9 @@ void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
 
     if (nread < 0) {
-        if (nread != UV_EOF)
-            fprintf(stderr, "Read error %s\n", uv_err_name(nread));
+        if (nread != UV_EOF){
+			// fprintf(stderr, "Read error %s\n", uv_err_name(nread));
+		}
         uv_close((uv_handle_t*) client, NULL);
         return;
     }
@@ -502,9 +535,25 @@ void thread_func( void *data ){
 	// done; close and clean up	
 	
 	uv_loop_close(&threadloop);
-	uv_close( (uv_handle_t*)&console_buffer_timer, NULL );
+	
+	if( !uv_is_closing( (uv_handle_t*)&console_buffer_timer )) uv_close( (uv_handle_t*)&console_buffer_timer, NULL );
+
+}
+
+void heartbeat(){
+	
+	if( closing_sequence ) return;
+
+	// test connection.  we actually need to send something,
+	// just checking for readability/writability will not
+	// detect a broken stream.
+	
+	json response = {{"type", "heartbeat"}};
+	push_response( response );
 	
 }
+
+
 
 void exit_on_error( const char *msg ){
 	
@@ -571,10 +620,10 @@ int main( int argc, char **argv ){
 	// cout << "waiting for exit..." << endl;
 	
 	uv_thread_join( &thread_id );
-	cout << "thread complete" << endl;
+	// cout << "thread complete" << endl;
 	
 	uv_cond_destroy( &input_condition );
-	cout << "process complete" << endl << flush;
+	// cout << "process complete" << endl << flush;
 
 	return 0;
 

@@ -94,4 +94,9 @@ void r_set_user_break( const char *msg = 0 );
  */
 void r_tick();
 
+/**
+ * periodically test the connection
+ */
+void heartbeat();
+
 #endif // #ifndef __CONTROLR_RINTERFACE_H

@@ -271,11 +271,14 @@ var ControlR = function(){
 
         if( packet.type ){
 						
-            if( packet.type === "response" ){
+			switch( packet.type ){				
+			
+			case "response":
                 if( notify ) notify.call( this, packet );
-            }
-			else if( packet.type === "prompt" ){
-				
+				break;
+			
+			case "prompt":
+			
 				// signals the end of an exec.  
 				
 				// FIXME: split notify callbacks for exec and 
@@ -285,9 +288,9 @@ var ControlR = function(){
 				else {
 					instance.emit( 'system', packet ); // send this to the renderer for possible handling
 				}
+				break;
 				
-			}
-            else if( packet.type === "console" ){
+			case "console":
 				
 				// unbuffered version.  we're buffering on the 
 				// child process now, should be sufficient, although
@@ -300,8 +303,10 @@ var ControlR = function(){
 				console_buffer += packet.message;
 				interval = setTimeout( flush_console, 50 );
 				*/
-            }
-			else if( packet.type === "sync-request" ){
+				
+				break;
+
+			case "sync-request":
 				
 				// adding an async call for the "sync"" callback.  leaving
 				// the old version in place (for now)
@@ -322,14 +327,22 @@ var ControlR = function(){
 					write_packet( socket, { command: 'sync-response', response: response });
 				}
 				
-			}
-			else if( opts.permissive ){
+				break;
+
+			case "heartbeat":
 				
-				// FIXME: log this packet type?
+				// console.info( "heartbeat" );
+			
+				break;
+
+			default:
+				if( opts.permissive ){
 				
-				instance.emit( packet.type, packet.data );
+					// FIXME: log this packet type?
+					instance.emit( packet.type, packet.data );
+				}
+				else console.info( "unexpected packet type", packet );
 			}
-			else console.info( "unexpected packet type", packet );
         }
 		else console.info( "Packet missing type", packet );
     };
