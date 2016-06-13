@@ -70,7 +70,8 @@ var start_child_process = function( opts, args ){
 	}
 	else {
 		env.R_HOME = opts.rhome;
-		env.LD_LIBRARY_PATH = path.join( opts.rhome, 'lib');
+		env.LD_LIBRARY_PATH = path.join( opts.rhome, 'lib') + ":" + 
+			env.LD_LIBRARY_PATH;
 	}
 
  	file = opts.file || path.join( opts.basedir ? opts.basedir : __dirname, "..", "build", "Release", "controlr" + ext );
