@@ -121,11 +121,13 @@ int r_loop( const char *rhome, const char *ruser, int argc, char ** argv ){
 	if( rhome ) strcpy( RHome, rhome );
 	if( ruser ) strcpy( RUser, ruser );
 
+	/*
 	sprintf_s(Rversion, 25, "%s.%s", R_MAJOR, R_MINOR);
 	if (strcmp(getDLLVersion(), Rversion) != 0) {
 		cerr << "Error: R.DLL version does not match" << endl;
 		return -1;
 	}
+	*/
 
 	R_setStartTime();
 	R_DefParams(Rp);

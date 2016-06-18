@@ -26,7 +26,7 @@
 
 #define VERSION_MAJOR 1
 #define VERSION_MINOR 7
-#define VERSION_PATCH 7
+#define VERSION_PATCH 9
 
 #endif // #ifndef __CONTROLR_VERSION_H
 
