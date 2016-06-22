@@ -23,11 +23,14 @@
 			
 			'conditions': [
 				['OS=="linux"', {
+					"cflags": [
+						'<!@($R_HOME/bin/R CMD config --cppflags)'
+					],
 					"sources": [ 
 						"src/rinterface_linux.cc"
 					],
 					"libraries": [
-						'-lR', '-lRblas', '../lib/libuv.a'
+						'-lR', '../lib/libuv.a'
 					],
 					"library_dirs" : [ 
 						'<!@(printf "%s/lib" "$R_HOME")',
