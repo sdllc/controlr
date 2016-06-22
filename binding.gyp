@@ -24,7 +24,7 @@
 			'conditions': [
 				['OS=="linux"', {
 					"cflags": [
-						'<!@($R_HOME/bin/R CMD config --cppflags)'
+						'<!@(R CMD config --cppflags)'
 					],
 					"sources": [ 
 						"src/rinterface_linux.cc"
@@ -33,14 +33,11 @@
 						'-lR', '../lib/libuv.a'
 					],
 					"library_dirs" : [ 
-						'<!@(printf "%s/lib" "$R_HOME")',
 					],
 					"include_dirs" : [
-						'<!@(printf "%s/include" "$R_HOME")',
-						'<!@(printf "%s/src/extra/graphapp" "$R_HOME")'
 					],
 					"ldflags" : [
-						'<!@($R_HOME/bin/R CMD config --ldflags)'
+						'<!@(R CMD config --ldflags)'
 					]
           	}],
 				['OS=="mac"', {
