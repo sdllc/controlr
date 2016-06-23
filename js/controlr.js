@@ -53,9 +53,8 @@ var start_child_process = function( opts, args ){
 
 	// d'oh darwin.  but really, win32?
 	
-	if( process.platform.match( /^win/ )){
-		env.R_HOME = opts.rhome;
-				
+	if( process.platform === "win32" ){
+
 		// so apparently this was not working on DOS shells (including the windows "shell")
 		// with an upper-case PATH.  I'm not clear on whether this is per spec or not, but
 		// if you want it to work... (setting both jic)
@@ -101,7 +100,7 @@ var start_child_process = function( opts, args ){
 				console.log(`child.stderr: ${data}`);
 			});
 		}
-		
+
         proc.on('close', (code) => {
             console.log(`child process exited with code ${code}`);
         });
