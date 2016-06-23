@@ -72,7 +72,7 @@
 					"library_dirs" : [ 
 					],
 					"include_dirs" : [
-						'<!@(echo "%R_HOME%/include")',
+						'<!@(Rscript -e "cat(R.home())")/include',
 					],
 					"copies": [{
 						"destination": "build/Release",
