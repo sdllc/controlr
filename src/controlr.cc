@@ -217,7 +217,7 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 							
 							std::string command = os.str();
 							len -= 2;
-							if( command.length() < len ) len = command.length();
+							if( len > 0 && command.length() < (unsigned int)len ) len = command.length();
 							strncpy( buf, command.c_str(), len );
 							buf[len++] = '\n';
 							buf[len++] = '\0';
