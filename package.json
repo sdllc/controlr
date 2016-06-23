@@ -1,12 +1,12 @@
 {
-	"license": "MIT",
-	"description": "R process module",
-	"keywords": [ "R" ],
-	"name": "controlr",
-	"repository": {
-    "type": "git",
-    "url": "https://github.com/sdllc/controlr.git"
-  },
-	"version": "1.8.2",
-	"main": "js/controlr.js"
+    "license": "MIT",
+    "description": "R process module",
+    "keywords": [ "R" ],
+    "name": "controlr",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/sdllc/controlr.git"
+    },
+    "version": "1.8.3",
+    "main": "js/controlr.js"
 }
