@@ -51,18 +51,14 @@
 						"./lib" 
 					],
 					"library_dirs" : [ 
-						'<!@(printf "%s/lib" "$R_HOME")',
-					],
-					"include_dirs" : [
-						'<!@(printf "%s/include" "$R_HOME")',
-						'<!@(printf "%s/src/extra/graphapp" "$R_HOME")'
+						'<!@(Rscript -e "cat(R.home())")/lib',
 					],
 					"ldflags" : [
-						'<!@($R_HOME/bin/R CMD config --ldflags)'
+						'<!@(R CMD config --ldflags)'
 					],
 					"xcode_settings": {
 						'MACOSX_DEPLOYMENT_TARGET': '10.11',
-						'OTHER_CFLAGS': ["-std=c++11", "-stdlib=libc++", "-fexceptions"]
+						'OTHER_CFLAGS': ["-std=c++11", "-stdlib=libc++", "-fexceptions", '<!@(R CMD config --cppflags)']
 					}
           	}],
 				['OS=="win"', {
