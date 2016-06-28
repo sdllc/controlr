@@ -14,6 +14,7 @@
  * This came out ugly.  FIXME: elegant interface.
  * 
  * FIXME: merge "object" document, array
+ * FIXME: test type before object/array operations? how expensive?
  *
  */
 
