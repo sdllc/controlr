@@ -24,8 +24,6 @@
 #include "controlr.h"
 #include "controlr_version.h"
 
-extern unsigned long long GetTimeMs64();
-
 using namespace std;
 
 uv_tcp_t _tcp;
@@ -239,7 +237,7 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 
 							std::string command = os.str();
 							len -= 2;
-							if( len > 0 && command.length() < (unsigned int)len ) len = command.length();
+							if( len > 0 && command.length() < (unsigned int)len ) len = (int)command.length();
 							strncpy( buf, command.c_str(), len );
 							buf[len++] = '\n';
 							buf[len++] = '\0';
@@ -314,22 +312,12 @@ void direct_callback( const char *channel, const char *data, bool buffered ){
 	// FIXME: don't do this twice
 	// FIXME: proper handling (at least for debug purposes)
 
-	try {		
-        /*
-		json j = json::parse(data);
-		json response = {{"type", channel}, {"data", j}};
-        */
-        JSONDocument jsrc(data);
-        JSONDocument *response = new JSONDocument();
-        response->add( "type", channel );
-        response->add( "data", jsrc );
+    JSONDocument jsrc(data);
+    JSONDocument *response = new JSONDocument();
+    response->add( "type", channel );
+    response->add( "data", jsrc );
 
-		push_response( response, buffered );
-	}
-	catch( ... ){
-		cout << "JSON parse exception (unknown)" << endl;
-		cout << data << endl;
-	}
+    push_response( response, buffered );
 		
 }
 
@@ -493,7 +481,7 @@ void console_message( const char *buf, int len, int flag ){
 /** standard alloc method */
 void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 	buf->base = (char*)malloc(suggested_size);
-	buf->len = suggested_size;
+	buf->len = (int)suggested_size;
 }
 
 void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {

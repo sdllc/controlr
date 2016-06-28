@@ -6,8 +6,7 @@
 			"sources": [ 
 				"src/controlr.cc", 
 				"src/rinterface_common.cc",
-                "src/JSON.cc",
-                "src/benchmark.cc"
+                "src/JSON.cc"
 			],
 			"libraries!": [
 				'-l"<(node_root_dir)/$(ConfigurationName)/<(node_lib_file)"'
@@ -18,10 +17,6 @@
 			"include_dirs" : [
 				"./include/"
 			],
-			"cflags!" : [ "-fno-exceptions" ],
-			"cflags" : [ "-fexceptions" ],
-			"cflags_cc!" : [ "-fno-exceptions" ],
-			"cflags_cc" : [ "-fexceptions" ],
 			
 			'conditions': [
 				['OS=="linux"', {
