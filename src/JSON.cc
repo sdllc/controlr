@@ -20,7 +20,10 @@ JSONDocument::JSONDocument( const char *json ){
 
 JSONDocument:: ~JSONDocument(){
     //cout << "~JSONDocument()" << endl;
-    if( this->p ) delete this->p;
+    if( this->p ){
+        Value *v = (Value*)p;
+        delete v;
+    }
     this->p = 0;
 }
 
@@ -157,7 +160,10 @@ JSONArray::JSONArray( int alloc ){
 }
 
 JSONArray::~JSONArray(){
-    if( this->p ) delete this->p;
+    if( this->p ){
+        Value *v = (Value*)p;
+        delete v;
+    }
     this->p = 0;
 }
 
@@ -201,11 +207,8 @@ void JSONArray::push( std::string &val ){
 } 
 
 void JSONDocument::take( JSONValue &v ){
-
-    Document *d = (Document*)p;
     Value *me = (Value*)p;
     Value *you = (Value*)v.p;
     (*me) = (*you); 
-
 }
 

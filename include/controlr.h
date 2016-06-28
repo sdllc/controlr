@@ -77,11 +77,11 @@ template < class T > class deallocate_on_deref : public std::vector < T > {
 public:
     deallocate_on_deref(){}
     ~deallocate_on_deref(){
-        for( std::vector<T>::iterator iter = begin(); iter != end(); iter++ ){
+        for( typename std::vector<T>::iterator iter = this->begin(); iter != this->end(); iter++ ){
             T ptr = *iter;
             delete ptr;
         }
-        clear();
+        this->clear();
     }
 };
 

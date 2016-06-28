@@ -219,7 +219,7 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 						if (jdoc->has("commands")) {
 							
 							std::ostringstream os;
-                            JSONValue &commands = (*jdoc)["commands"];
+                            JSONValue commands = (*jdoc)["commands"];
                             if( commands.is_array()){
                                 unsigned int alen = commands.length();
                                 for( unsigned int i = 0; i< alen; i++ ){
@@ -248,7 +248,7 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 						if (jdoc->has("commands")) {
 							
 							std::vector < std::string > strvec;
-                            JSONValue &commands = (*jdoc)["commands"];
+                            JSONValue commands = (*jdoc)["commands"];
 
                             if( commands.is_array()){
                                 unsigned int alen = commands.length();
@@ -328,7 +328,8 @@ JSONDocument * sync_callback2( const char *data, bool buffered ){
 	if (command->has("response")) return nullptr;	
 
     JSONDocument *jdoc = new JSONDocument();
-    jdoc->take((*command)[ "response" ]);
+    JSONValue src = (*command)[ "response" ];
+    jdoc->take(src);
     return jdoc;
 
 	// jFIXME // return command["response"];
@@ -640,7 +641,9 @@ int main( int argc, char **argv ){
 		if( !cmd.compare( "rinit" )){
 		
 			std::string rhome;
-			if (jdoc->has("rhome")) rhome = (*jdoc)["rhome"];
+			if (jdoc->has("rhome")){
+                rhome = std::string((*jdoc)["rhome"]);
+            }
 
 			char nosave[] = "--no-save";
 			char norestore[] = "--no-restore";

@@ -18,6 +18,10 @@
  *
  */
 
+// fwd
+class JSONDocument;
+class JSONArray;
+
 class JSONValue {
     friend class JSONDocument;
     friend class JSONArray;

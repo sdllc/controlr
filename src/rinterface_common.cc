@@ -385,15 +385,15 @@ JSONDocument& SEXP2JSON2( SEXP sexp, JSONDocument &jresult, bool compress_array,
 			char buffer[64];
 			JSONDocument *target = ( attrs ? &hash : &jresult );
 
-			for( size_t i = 0; i< len; i++ ){
+			for( int i = 0; i< len; i++ ){
                 std::string strname = jnames[i];
 
 				if( strname.length() == 0 ){
-					snprintf( buffer, 64, "$%d", (int)i + 1 ); // 1-based per R convention
+					snprintf( buffer, 64, "$%d", i + 1 ); // 1-based per R convention
 					strname = buffer;
 				}
 
-                JSONValue &jv = vector[i];
+                JSONValue jv = vector[(size_t)i];
                 target->add( strname.c_str(), jv);
 			}
 			if( attrs ){	
@@ -404,7 +404,6 @@ JSONDocument& SEXP2JSON2( SEXP sexp, JSONDocument &jresult, bool compress_array,
 			
 		}
 		else {
-
 			if( attrs ){
 				jresult.add( "$data", vector );
 			}
@@ -412,7 +411,8 @@ JSONDocument& SEXP2JSON2( SEXP sexp, JSONDocument &jresult, bool compress_array,
                 jresult.take( vector );
             } 
 			else {
-                jresult.take( vector[(size_t)0] );
+                JSONValue src = vector[(size_t)0];
+                jresult.take( src );
             }
 		}
 	
