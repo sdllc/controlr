@@ -32,7 +32,7 @@
 #include <string>
 #include <vector>
 
-#include "3dparty/json.hpp"
+// #include "3dparty/json.hpp"
 
 #include "controlr_rinterface.h"
 
@@ -68,6 +68,21 @@ public:
 
 protected:
 	uv_mutex_t mutex;
+};
+
+/**
+ * utility class
+ */
+template < class T > class deallocate_on_deref : public std::vector < T > {
+public:
+    deallocate_on_deref(){}
+    ~deallocate_on_deref(){
+        for( std::vector<T>::iterator iter = begin(); iter != end(); iter++ ){
+            T ptr = *iter;
+            delete ptr;
+        }
+        clear();
+    }
 };
 
 /**

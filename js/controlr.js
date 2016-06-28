@@ -179,7 +179,7 @@ var write_packet = function( socket, packet ){
  * buffer is an object, see note below
  */
 var on_read = function( socket, buffer, callback ){
-    
+
 	var str = socket.read();
 	if( !str ) return;
    
@@ -192,6 +192,7 @@ var on_read = function( socket, buffer, callback ){
     		if( buffer.data.length ) x = buffer.data + x;
         
             // valid packet (probably? cheaper than try/catch)
+            
             if( x.trim().endsWith( '}' )){		
                 buffer.data = "";
                 if( x.trim().length ){

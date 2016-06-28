@@ -34,7 +34,7 @@
 #include <string>
 #include <list>
 
-#include "3dparty/json.hpp"
+#include "JSON.h"
 
 /**
  * this is a reimplementation of R's parse status eunm; that one is 
@@ -57,12 +57,20 @@ int input_stream_read(const char *prompt, char *buf, int len, int addtohistory, 
 
 /**
  * execute a command on the internal channel and return the result as a json packet
- */
+ * /
 nlohmann::json& exec_to_json( nlohmann::json &result, 
+	std::vector< std::string > &vec, int *err = 0, PARSE_STATUS_2 *ps = 0, bool withVisible = false );
+*/
+
+/**
+ * execute a command on the internal channel and return the result as a json packet
+ */
+JSONDocument& exec_to_json2( JSONDocument &result, 
 	std::vector< std::string > &vec, int *err = 0, PARSE_STATUS_2 *ps = 0, bool withVisible = false );
 
 /** get srcref for a browser */	
-nlohmann::json& get_srcref( nlohmann::json &srcref ); 
+// nlohmann::json& get_srcref( nlohmann::json &srcref ); 
+JSONDocument& get_srcref2( JSONDocument &srcref );
 
 /** 
  * handler for messages coming from the R side (js client package)
@@ -72,7 +80,8 @@ void direct_callback( const char *channel, const char *data, bool buffer );
 /** 
  *
  */
-nlohmann::json sync_callback( const char *data, bool buffer );
+// nlohmann::json sync_callback( const char *data, bool buffer );
+JSONDocument* sync_callback2( const char *data, bool buffer );
 
 /**
  * console output handler

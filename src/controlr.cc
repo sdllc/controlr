@@ -24,16 +24,21 @@
 #include "controlr.h"
 #include "controlr_version.h"
 
+extern unsigned long long GetTimeMs64();
+
 using namespace std;
-using json = nlohmann::json;
 
 uv_tcp_t _tcp;
 uv_pipe_t _pipe;
 uv_stream_t *client;
 
-locked_vector < json > command_queue;
-locked_vector < json > response_queue;
-locked_vector < json > input_queue;
+locked_vector < JSONDocument* > command_queue2;
+locked_vector < JSONDocument* > input_queue2;
+locked_vector < JSONDocument* > response_queue2;
+
+//locked_vector < json > command_queue;
+//locked_vector < json > response_queue;
+//locked_vector < json > input_queue;
 
 uv_async_t async_on_thread_loop;
 uv_timer_t console_buffer_timer;
@@ -80,9 +85,9 @@ int heartbeat_counter = 0;
 
 void write_callback(uv_write_t *req, int status) ;
 
-__inline void push_response( json &j, bool buffered = false ){
+__inline void push_response( JSONDocument *j, bool buffered = false ){
 	
-	response_queue.locked_push_back( j );
+	response_queue2.locked_push_back( j );
 	uv_async_send( &async_on_thread_loop );
 
 }
@@ -90,9 +95,10 @@ __inline void push_response( json &j, bool buffered = false ){
 /** 
  * write a packet plus a newline (which we use as a separator) 
  */
-__inline void writeJSON( json &j, std::vector< char* > *pool = 0){
+__inline void writeJSON( JSONDocument *j, std::vector< char* > *pool = 0){
 	
-	std::string str = j.dump();
+//	std::string str = j.dump();
+    std::string str = j->toString();
 	int len = (int)str.length();
 		
 	char *sz = (char*)( malloc( len + 1 ));
@@ -118,8 +124,6 @@ __inline void writeJSON( json &j, std::vector< char* > *pool = 0){
 
 	if( rslt < 0 ){
 		
-		// cout << "uv_write err: " << rslt << ": " << uv_err_name(rslt) << endl;
-		
 		initialized = false;
 		closing_sequence = true;
 		
@@ -128,12 +132,22 @@ __inline void writeJSON( json &j, std::vector< char* > *pool = 0){
 		if( !uv_is_closing( (uv_handle_t*)&console_buffer_timer )) uv_close( (uv_handle_t*)&console_buffer_timer, NULL );
 
 	}
+
 }
 
 int input_stream_read( const char *prompt, char *buf, int len, int addtohistory, bool is_continuation ){
 
-	json srcref;
-	json response = {{"type", "prompt"}, {"data", {{"prompt", prompt}, {"continuation", is_continuation}, {"srcref", get_srcref(srcref)}}}};
+    JSONDocument *response = new JSONDocument();
+    response->add( "type", "prompt" );
+
+    JSONDocument tmp;
+    tmp.add( "prompt", prompt );
+    tmp.add( "continuation", is_continuation );
+
+    JSONDocument srcref;
+    tmp.add( "srcref", get_srcref2( srcref ));
+
+    response->add( "data", tmp );
 	push_response( response );
 
 	while( !closing_sequence ){
@@ -149,8 +163,8 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 		
 		uv_cond_timedwait( &input_condition, &input_condition_mutex, CONSOLE_BUFFER_EVENTS_TICK ); 
 
-		std::vector < json > commands;
-		input_queue.locked_consume( commands );
+		deallocate_on_deref < JSONDocument* > commands;
+		input_queue2.locked_consume( commands );
 		
 		if( !commands.size()){
 
@@ -174,16 +188,19 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 
 			heartbeat_counter = 0; // toll
 
-			for( std::vector< json >::iterator iter = commands.begin(); iter != commands.end(); iter++ ){
-				json &j = *iter;
-				if (j.find("command") != j.end()) {	
+			for( std::vector< JSONDocument* >::iterator iter = commands.begin(); iter != commands.end(); iter++ ){
+				JSONDocument *jdoc = *iter;
+                if (jdoc->has("command")) {	
 					
-					json response = {{"type", "response"}};
-					std::string cmd = j["command"];
+					//json response = {{"type", "response"}};
+                    JSONDocument *response = new JSONDocument();
+                    response->add( "type", "response" );
+
+					std::string cmd = jdoc->getString("command");
 
 					// are we using this?  it's not necessarily a good fit
 					// for some of the unbalanced calls. 
-					if (j.find("id") != j.end()) response["id"] = j["id"];
+					if (jdoc->has("id")) response->add( "id", jdoc->getString("id").c_str());
 
 					if( !cmd.compare( "rshutdown" )){
 
@@ -206,15 +223,20 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 						// FIXME: no vectors in exec
 						// FIXME: don't let client send in >= 4k (here we'll fail silently).
 					
-						if (j.find("commands") != j.end()) {
+						if (jdoc->has("commands")) {
 							
 							std::ostringstream os;
-							json commands = j["commands"];
-							for( json::iterator iter = commands.begin(); iter != commands.end(); iter++ ){
-								std::string str = iter->get<std::string>();
-								os << str;
-							}
-							
+							JSONValue &commands = jdoc->get("commands");
+                            if( commands.is_Array()){
+                                unsigned int alen = commands.arrayLength();
+                                for( unsigned int i = 0; i< alen; i++ ){
+                                    JSONValue jv = commands.arrayValue(i);
+                                    std::string str = jv.stringValue();
+                                    os << str;
+                                }   
+                            }
+                            else if( commands.is_String()) os << commands.stringValue();
+
 							std::string command = os.str();
 							len -= 2;
 							if( len > 0 && command.length() < (unsigned int)len ) len = command.length();
@@ -230,31 +252,50 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 						
 						int err = 0;
 						PARSE_STATUS_2 ps = PARSE2_EOF;
-						if (j.find("commands") != j.end()) {
+						if (jdoc->has("commands")) {
 							
 							std::vector < std::string > strvec;
-							json commands = j["commands"];
-							for( json::iterator iter = commands.begin(); iter != commands.end(); iter++ ){
-								std::string str = iter->get<std::string>();
-								strvec.push_back( str );
-							}
-							
-							json rslt;
-							response["response"] = exec_to_json( rslt, strvec, &err, &ps, false );
+							JSONValue &commands = jdoc->get("commands");
+
+                            if( commands.is_Array()){
+                                unsigned int alen = commands.arrayLength();
+                                for( unsigned int i = 0; i< alen; i++ ){
+                                    JSONValue jv = commands.arrayValue(i);
+                                    std::string str = jv.stringValue();
+                                    strvec.push_back( str );
+                                }   
+                            }							
+                            else if( commands.is_String()) strvec.push_back( commands.stringValue());
+
+							//json rslt;
+							//response["response"] = exec_to_json( rslt, strvec, &err, &ps, false );
+                            // jFIXME
+                            // response->add( "response", 404 );
+
+                            JSONDocument rslt;
+                            response->add( "response", exec_to_json2( rslt, strvec, &err, &ps, false ));
+
 
 						}
-						response["parsestatus"] = ps;
-						if( err ) response["err"] = err;
-						
+						//response["parsestatus"] = ps;
+						//if( err ) response["err"] = err;
+						response->add( "parsestatus", ps );
+                        if( err ) response->add( "err", err );
+
 					}
 					else {
-						response["err"] = 2;
-						response["message"] = "Unknown command";
-						response["command"] = cmd;
+						//response["err"] = 2;
+						//response["message"] = "Unknown command";
+						//response["command"] = cmd;
+
+						response->add( "err", 2 );
+						response->add( "message", "Unknown command" );
+						response->add( "command", cmd.c_str() );
+                        
 					}
 					push_response( response );
 				}
-				else cerr << "Unexpected packet\n" << j.dump() << endl;
+				else cerr << "Unexpected packet\n" << jdoc->toString() << endl;
 			}
 
 		}
@@ -275,8 +316,15 @@ void direct_callback( const char *channel, const char *data, bool buffered ){
 	// FIXME: proper handling (at least for debug purposes)
 
 	try {		
+        /*
 		json j = json::parse(data);
 		json response = {{"type", channel}, {"data", j}};
+        */
+        JSONDocument jsrc(data);
+        JSONDocument *response = new JSONDocument();
+        response->add( "type", channel );
+        response->add( "data", jsrc );
+
 		push_response( response, buffered );
 	}
 	catch( ... ){
@@ -291,25 +339,30 @@ void direct_callback( const char *channel, const char *data, bool buffered ){
  * "sync-request"; the client MUST respond with something, even
  * a null message, for the operation to complete.
  */
-json sync_callback( const char *data, bool buffered ){
+JSONDocument * sync_callback2( const char *data, bool buffered ){
 
 	direct_callback( "sync-request", data, buffered );
-	std::vector < json > commands;
+	deallocate_on_deref < JSONDocument* > commands;
 
 	// FIXME: timeout?
 	
 	while( true ){
 		uv_cond_timedwait( &input_condition, &input_condition_mutex, CONSOLE_BUFFER_EVENTS_TICK ); 
-		input_queue.locked_consume( commands );
+		input_queue2.locked_consume( commands );
 		if( commands.size()) break;
 		if( initialized ) r_tick();
 	}
 	
 	if( !commands.size()) return nullptr;
-	json &command = commands[0];
-	if (command.find("response") == command.end()) return nullptr;	
-	return command["response"];
-	
+	JSONDocument *command = commands[0];
+	if (command->has("response")) return nullptr;	
+
+    JSONDocument *jdoc = new JSONDocument();
+    jdoc->take( command->get( "response" ));
+    return jdoc;
+
+	// jFIXME // return command["response"];
+	// return nullptr;
 }
 
 /** 
@@ -348,14 +401,22 @@ __inline void flushConsoleBuffer(){
 
 	os_buffer_err.locked_consume(s);
 	if( s.length()){
-		json j = {{"type", "console"}, {"message", s.c_str()}, {"flag", 1}};
-		writeJSON( j );
+        JSONDocument jdoc;
+		//json j = {{"type", "console"}, {"message", s.c_str()}, {"flag", 1}};
+        jdoc.add( "type", "console" );
+        jdoc.add( "message", s.c_str() );
+        jdoc.add( "flag", 1 );
+		writeJSON( &jdoc );
 	}
 
 	os_buffer.locked_consume(s);
 	if( s.length()){
-		json j = {{"type", "console"}, {"message", s.c_str()}, {"flag", 0}};
-		writeJSON( j );
+        JSONDocument jdoc;
+		//json j = {{"type", "console"}, {"message", s.c_str()}, {"flag", 0}};
+        jdoc.add( "type", "console" );
+        jdoc.add( "message", s.c_str() );
+        jdoc.add( "flag", 0 );
+		writeJSON( &jdoc );
 	}
 
 }
@@ -381,8 +442,8 @@ void async_thread_loop_callback( uv_async_t *handle ){
 	// side) and process the console output in the timer 
 	// callback.
 	
-	std::vector < json > messages;
-	response_queue.locked_consume(messages);
+	deallocate_on_deref < JSONDocument* > messages;
+	response_queue2.locked_consume(messages);
 	
 	if( messages.size() == 0 ){
 		
@@ -402,7 +463,7 @@ void async_thread_loop_callback( uv_async_t *handle ){
 
 	flushConsoleBuffer();
 	
-	for( std::vector< json >::iterator iter = messages.begin();
+	for( std::vector< JSONDocument* >::iterator iter = messages.begin();
 			iter != messages.end(); iter++ ){
 		writeJSON( *iter );
 	}
@@ -446,7 +507,9 @@ void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
         return;
     }
 
-	json j = json::parse(std::string( buf->base, buf->len ));
+    JSONDocument *jdoc = new JSONDocument(std::string( buf->base, buf->len ).c_str());
+
+	//json j = json::parse(std::string( buf->base, buf->len ));
 
 	// in the new structure, when R is running everything has 
 	// to get signaled by the condition in the stream loop, 
@@ -460,10 +523,10 @@ void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
 
 	bool handled = false;
 
-	if (j.find("command") != j.end()) {
-		std::string cmd = j["command"];
+    if( jdoc->has( "command" )){
+		std::string cmd = jdoc->getString( "command" ); //j["command"];
 		if( !cmd.compare( "rinit" )){
-			command_queue.locked_push_back( j );
+			command_queue2.locked_push_back( jdoc );
 			uv_cond_signal( &init_condition );
 			handled = true;
 		}
@@ -475,13 +538,15 @@ void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
 			// response? watch out for overlaps... this needs a special 
 			// response class (if we want to respond).
 			
+            delete jdoc;
+
 		}
 	}
 	
 	// not handled: signal the main thread.
 
 	if( !handled && initialized ){
-		input_queue.locked_push_back(j);
+		input_queue2.locked_push_back(jdoc);
 		uv_cond_signal( &input_condition );
 	}
 	
@@ -548,7 +613,12 @@ void heartbeat(){
 	// just checking for readability/writability will not
 	// detect a broken stream.
 	
-	json response = {{"type", "heartbeat"}};
+	//json response = {{"type", "heartbeat"}};
+    JSONDocument *response = new JSONDocument();
+    response->add( "type", "heartbeat" );
+
+    // jFIXME: static!
+
 	push_response( response );
 	
 }
@@ -556,10 +626,14 @@ void heartbeat(){
 
 
 void exit_on_error( const char *msg ){
+    
+	//json err = {{"type", "error"}};
+	//if( msg ) err["message"] = msg;
 	
-	json err = {{"type", "error"}};
-	if( msg ) err["message"] = msg;
-	
+    JSONDocument *err = new JSONDocument();
+	err->add( "type", "error" );
+    if( msg ) err->add( "message", msg );
+
 	closing_sequence = true;
 	initialized = false;
 	
@@ -589,21 +663,21 @@ int main( int argc, char **argv ){
 	uv_mutex_init( &init_condition_mutex );
     uv_thread_create(&thread_id, thread_func, 0);
 	
-	std::vector< json > commands;
+	deallocate_on_deref< JSONDocument* > commands;
 	while( true ){
 		uv_cond_wait( &init_condition, &init_condition_mutex );	
-		command_queue.locked_consume( commands );
+		command_queue2.locked_consume( commands );
 		if( commands.size() > 0 ) break;
 	}
 
-	json j = commands[0];
-	if( j.find( "command" ) != j.end()){
+    JSONDocument *jdoc = commands[0];
+	if( jdoc->has( "command" )){
 	
-		std::string cmd = j["command"];
+		std::string cmd = jdoc->getString( "command" );
 		if( !cmd.compare( "rinit" )){
 		
 			std::string rhome;
-			if (j.find("rhome") != j.end()) rhome = j["rhome"].get<std::string>();
+			if (jdoc->has("rhome")) rhome = jdoc->getString("rhome");
 
 			char nosave[] = "--no-save";
 			char norestore[] = "--no-restore";

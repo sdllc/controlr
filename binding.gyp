@@ -5,7 +5,9 @@
 			"type": "executable",
 			"sources": [ 
 				"src/controlr.cc", 
-				"src/rinterface_common.cc"
+				"src/rinterface_common.cc",
+                "src/JSON.cc",
+                "src/benchmark.cc"
 			],
 			"libraries!": [
 				'-l"<(node_root_dir)/$(ConfigurationName)/<(node_lib_file)"'
