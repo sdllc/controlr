@@ -34,10 +34,6 @@ locked_vector < JSONDocument* > command_queue2;
 locked_vector < JSONDocument* > input_queue2;
 locked_vector < JSONDocument* > response_queue2;
 
-//locked_vector < json > command_queue;
-//locked_vector < json > response_queue;
-//locked_vector < json > input_queue;
-
 uv_async_t async_on_thread_loop;
 uv_timer_t console_buffer_timer;
 
@@ -190,7 +186,6 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 				JSONDocument *jdoc = *iter;
                 if (jdoc->has("command")) {	
 					
-					//json response = {{"type", "response"}};
                     JSONDocument *response = new JSONDocument();
                     response->add( "type", "response" );
 
@@ -264,31 +259,19 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
                             }							
                             else if( commands.is_string()) strvec.push_back(commands);
 
-							//json rslt;
-							//response["response"] = exec_to_json( rslt, strvec, &err, &ps, false );
-                            // jFIXME
-                            // response->add( "response", 404 );
-
                             JSONDocument rslt;
                             response->add( "response", exec_to_json2( rslt, strvec, &err, &ps, false ));
 
 
 						}
-						//response["parsestatus"] = ps;
-						//if( err ) response["err"] = err;
 						response->add( "parsestatus", ps );
                         if( err ) response->add( "err", err );
 
 					}
 					else {
-						//response["err"] = 2;
-						//response["message"] = "Unknown command";
-						//response["command"] = cmd;
-
 						response->add( "err", 2 );
 						response->add( "message", "Unknown command" );
 						response->add( "command", cmd.c_str() );
-                        
 					}
 					push_response( response );
 				}
@@ -389,8 +372,7 @@ __inline void flushConsoleBuffer(){
 	os_buffer_err.locked_consume(s);
 	if( s.length()){
         JSONDocument jdoc;
-		//json j = {{"type", "console"}, {"message", s.c_str()}, {"flag", 1}};
-        jdoc.add( "type", "console" );
+		jdoc.add( "type", "console" );
         jdoc.add( "message", s.c_str() );
         jdoc.add( "flag", 1 );
 		writeJSON( &jdoc );
@@ -399,8 +381,7 @@ __inline void flushConsoleBuffer(){
 	os_buffer.locked_consume(s);
 	if( s.length()){
         JSONDocument jdoc;
-		//json j = {{"type", "console"}, {"message", s.c_str()}, {"flag", 0}};
-        jdoc.add( "type", "console" );
+		jdoc.add( "type", "console" );
         jdoc.add( "message", s.c_str() );
         jdoc.add( "flag", 0 );
 		writeJSON( &jdoc );
@@ -495,8 +476,6 @@ void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
     }
 
     JSONDocument *jdoc = new JSONDocument(std::string( buf->base, buf->len ).c_str());
-
-	//json j = json::parse(std::string( buf->base, buf->len ));
 
 	// in the new structure, when R is running everything has 
 	// to get signaled by the condition in the stream loop, 
@@ -600,7 +579,6 @@ void heartbeat(){
 	// just checking for readability/writability will not
 	// detect a broken stream.
 	
-	//json response = {{"type", "heartbeat"}};
     JSONDocument *response = new JSONDocument();
     response->add( "type", "heartbeat" );
 
@@ -614,9 +592,7 @@ void heartbeat(){
 
 void exit_on_error( const char *msg ){
     
-	//json err = {{"type", "error"}};
-	//if( msg ) err["message"] = msg;
-	
+
     JSONDocument *err = new JSONDocument();
 	err->add( "type", "error" );
     if( msg ) err->add( "message", msg );
