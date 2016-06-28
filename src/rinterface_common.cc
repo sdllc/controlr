@@ -672,14 +672,15 @@ JSONDocument& SEXP2JSON2( SEXP sexp, JSONDocument &jresult, bool compress_array,
 
 			for( int i = 0; i< len; i++ ){
 				std::string strname = //jnames[i].get<std::string>();
-                    jnames.arrayValue(i).stringValue();
+                    jnames.arrayValue(i);
 
 				if( strname.length() == 0 ){
 					snprintf( buffer, 64, "$%d", i + 1 ); // 1-based per R convention
 					strname = buffer;
 				}
 				// (*target)[strname] = vector[i];
-                target->add( strname.c_str(), vector.arrayValue(i));
+                JSONValue &jv = vector.arrayValue(i);
+                target->add( strname.c_str(), jv);
 			}
 			if( attrs ){	
 				jresult.add( "$data", hash );	
@@ -787,17 +788,14 @@ SEXP direct_callback_sync( SEXP sexp, bool buffer ){
 
 	JSONDocument *response = sync_callback2( j.toString().c_str(), buffer );
 	
-	if( response->is_String()){
-		std::string s = response->stringValue();
-		rslt = Rf_mkString( s.c_str());
+	if( response->is_string()){
+		rslt = Rf_mkString( ((std::string)*response).c_str());
 	}
-	else if( response->is_Number()){
-		double d = response->doubleValue();
-		rslt = Rf_ScalarReal(d);
+	else if( response->is_number()){
+		rslt = Rf_ScalarReal(*response);
 	}
-	else if( response->is_Bool()){
-		bool b = response->boolValue();
-		rslt = Rf_ScalarLogical(b ? 1 : 0);
+	else if( response->is_bool()){
+		rslt = Rf_ScalarLogical((bool)response ? 1 : 0);
 	}
     else rslt = R_NilValue;
 

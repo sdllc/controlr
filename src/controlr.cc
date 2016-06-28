@@ -196,11 +196,11 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
                     JSONDocument *response = new JSONDocument();
                     response->add( "type", "response" );
 
-					std::string cmd = jdoc->getString("command");
+                    std::string cmd = (*jdoc)["command"];
 
 					// are we using this?  it's not necessarily a good fit
 					// for some of the unbalanced calls. 
-					if (jdoc->has("id")) response->add( "id", jdoc->getString("id").c_str());
+					if (jdoc->has("id")) response->add( "id", ((std::string)((*jdoc)["id"])).c_str());
 
 					if( !cmd.compare( "rshutdown" )){
 
@@ -226,16 +226,16 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 						if (jdoc->has("commands")) {
 							
 							std::ostringstream os;
-							JSONValue &commands = jdoc->get("commands");
-                            if( commands.is_Array()){
+                            JSONValue &commands = (*jdoc)["commands"];
+                            if( commands.is_array()){
                                 unsigned int alen = commands.arrayLength();
                                 for( unsigned int i = 0; i< alen; i++ ){
                                     JSONValue jv = commands.arrayValue(i);
-                                    std::string str = jv.stringValue();
+                                    std::string str = jv;
                                     os << str;
                                 }   
                             }
-                            else if( commands.is_String()) os << commands.stringValue();
+                            else if( commands.is_string()) os << (std::string)commands;
 
 							std::string command = os.str();
 							len -= 2;
@@ -255,17 +255,16 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 						if (jdoc->has("commands")) {
 							
 							std::vector < std::string > strvec;
-							JSONValue &commands = jdoc->get("commands");
+                            JSONValue &commands = (*jdoc)["commands"];
 
-                            if( commands.is_Array()){
+                            if( commands.is_array()){
                                 unsigned int alen = commands.arrayLength();
                                 for( unsigned int i = 0; i< alen; i++ ){
                                     JSONValue jv = commands.arrayValue(i);
-                                    std::string str = jv.stringValue();
-                                    strvec.push_back( str );
+                                    strvec.push_back(jv);
                                 }   
                             }							
-                            else if( commands.is_String()) strvec.push_back( commands.stringValue());
+                            else if( commands.is_string()) strvec.push_back(commands);
 
 							//json rslt;
 							//response["response"] = exec_to_json( rslt, strvec, &err, &ps, false );
@@ -358,7 +357,7 @@ JSONDocument * sync_callback2( const char *data, bool buffered ){
 	if (command->has("response")) return nullptr;	
 
     JSONDocument *jdoc = new JSONDocument();
-    jdoc->take( command->get( "response" ));
+    jdoc->take((*command)[ "response" ]);
     return jdoc;
 
 	// jFIXME // return command["response"];
@@ -524,7 +523,7 @@ void read_cb(uv_stream_t *client, ssize_t nread, const uv_buf_t *buf) {
 	bool handled = false;
 
     if( jdoc->has( "command" )){
-		std::string cmd = jdoc->getString( "command" ); //j["command"];
+        std::string cmd = (*jdoc)["command"]; //j["command"];
 		if( !cmd.compare( "rinit" )){
 			command_queue2.locked_push_back( jdoc );
 			uv_cond_signal( &init_condition );
@@ -673,11 +672,11 @@ int main( int argc, char **argv ){
     JSONDocument *jdoc = commands[0];
 	if( jdoc->has( "command" )){
 	
-		std::string cmd = jdoc->getString( "command" );
+        std::string cmd = (*jdoc)["command"];
 		if( !cmd.compare( "rinit" )){
 		
 			std::string rhome;
-			if (jdoc->has("rhome")) rhome = jdoc->getString("rhome");
+			if (jdoc->has("rhome")) rhome = (*jdoc)["rhome"];
 
 			char nosave[] = "--no-save";
 			char norestore[] = "--no-restore";
