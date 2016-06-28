@@ -71,7 +71,7 @@ bool JSONValue::is_number(){
     return ((Value*)p)->IsNumber();
 }
 
-unsigned int JSONValue::arrayLength(){
+size_t JSONValue::length(){
     return ((Value*)p)->Size();
 }
 
@@ -93,16 +93,6 @@ bool JSONValue::has(const char *key){
     return ( v->FindMember(key) != v->MemberEnd());
 }
 
-/*
-std::string JSONValue::getString(const char *key){
-    Value *v = (Value*)p;
-    if( v->IsObject() && has( key )){
-        return std::string((*v)[key].GetString());
-    }
-    return "";
-}
-*/
-
 JSONValue::operator double(){
     Value *v = (Value*)p;
     return v->GetDouble();
@@ -118,23 +108,6 @@ JSONValue::operator std::string(){
     return std::string( v->GetString());
 }
 
-/*
-std::string JSONValue::stringValue(){
-    Value *v = (Value*)p;
-    return std::string( v->GetString());
-}
-
-double JSONValue::doubleValue(){
-    Value *v = (Value*)p;
-    return v->GetDouble();
-}
-
-bool JSONValue::boolValue(){
-    Value *v = (Value*)p;
-    return v->GetBool();
-}
-*/
-
 JSONValue JSONValue :: operator [](const char *key){
     Value *v = (Value*)p;
     JSONValue jv;
@@ -143,17 +116,7 @@ JSONValue JSONValue :: operator [](const char *key){
     return jv;
 }
 
-/*
-JSONValue JSONValue::get(const char *key){
-    Value *v = (Value*)p;
-    JSONValue jv;
-    Value &target = (*v)[key];
-    jv.p = (void*)&target;
-    return jv;
-}
-*/
-
-JSONValue JSONValue::arrayValue(unsigned int index){
+JSONValue JSONValue :: operator [](size_t index){
     Value *v = (Value*)p;
     JSONValue jv;
     Value &target = (*v)[index];
@@ -242,11 +205,7 @@ void JSONDocument::take( JSONValue &v ){
     Document *d = (Document*)p;
     Value *me = (Value*)p;
     Value *you = (Value*)v.p;
-
-    (*me) = (*you);
-//    v.p = 0;
-//    (*me) = 909;
-//    me->CopyFrom( *you, d->GetAllocator());
+    (*me) = (*you); 
 
 }
 

@@ -12,6 +12,8 @@
  * header conflicts.  Don't do more work than necessary.
  *
  * This came out ugly.  FIXME: elegant interface.
+ * 
+ * FIXME: merge "object" document, array
  *
  */
 
@@ -47,9 +49,9 @@ public:
     // get member by name
     JSONValue operator [](const char *key);
 
-    // ... ? switch to new type
-    unsigned int arrayLength();
-    JSONValue arrayValue(unsigned int index);
+    // ? should go in array, or merge?
+    size_t length();
+    JSONValue operator [](size_t index);
 
 protected:
     void *p;

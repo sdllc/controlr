@@ -221,9 +221,9 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
 							std::ostringstream os;
                             JSONValue &commands = (*jdoc)["commands"];
                             if( commands.is_array()){
-                                unsigned int alen = commands.arrayLength();
+                                unsigned int alen = commands.length();
                                 for( unsigned int i = 0; i< alen; i++ ){
-                                    JSONValue jv = commands.arrayValue(i);
+                                    JSONValue jv = commands[i];
                                     std::string str = jv;
                                     os << str;
                                 }   
@@ -251,9 +251,9 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
                             JSONValue &commands = (*jdoc)["commands"];
 
                             if( commands.is_array()){
-                                unsigned int alen = commands.arrayLength();
+                                unsigned int alen = commands.length();
                                 for( unsigned int i = 0; i< alen; i++ ){
-                                    JSONValue jv = commands.arrayValue(i);
+                                    JSONValue jv = commands[i];
                                     strvec.push_back(jv);
                                 }   
                             }							
