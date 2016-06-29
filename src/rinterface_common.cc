@@ -243,6 +243,13 @@ JSONDocument& SEXP2JSON( SEXP sexp, JSONDocument &jresult, bool compress_array, 
 			jresult.add( "$rownames", jrownames );
 		}
 
+		SEXP rclass = getAttrib( sexp, R_ClassSymbol );
+		if( rclass && !Rf_isNull( rclass )){
+			JSONDocument jclass;
+            attrs = true;
+			jresult.add( "$class", SEXP2JSON( rclass, jclass, true ));
+		}
+
         // the rest get stuffed into an array (at least initially)
         JSONArray vector(len);
 
@@ -415,14 +422,8 @@ JSONDocument& SEXP2JSON( SEXP sexp, JSONDocument &jresult, bool compress_array, 
                 jresult.take( src );
             }
 		}
-	
-		if( names || attrs ){
-			SEXP sClass = getAttrib( sexp, R_ClassSymbol );
-			if( sClass && !Rf_isNull( sClass )){
-				JSONDocument jClass;
-				jresult.add( "$class", SEXP2JSON( sClass, jClass, true ));
-			}
-		}
+
+        // used to add class here.  not sure exactly why...
 				
 	}
 	
