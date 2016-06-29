@@ -36,7 +36,7 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
-JSONDocument &SEXP2JSON2( SEXP sexp, JSONDocument &jresult, bool compress_array = true, std::vector < SEXP > envir_list = std::vector < SEXP > () );
+JSONDocument &SEXP2JSON( SEXP sexp, JSONDocument &jresult, bool compress_array = true, std::vector < SEXP > envir_list = std::vector < SEXP > () );
 
 extern "C" {
 	extern void Rf_PrintWarnings();
@@ -143,7 +143,7 @@ SEXP exec_r(std::vector < std::string > &vec, int *err, ParseStatus *pStatus, bo
 
 }
 
-JSONDocument& SEXP2JSON2( SEXP sexp, JSONDocument &jresult, bool compress_array, std::vector < SEXP > envir_list ){
+JSONDocument& SEXP2JSON( SEXP sexp, JSONDocument &jresult, bool compress_array, std::vector < SEXP > envir_list ){
 
 	// check null (and exit early)
 	if (!sexp){
@@ -195,7 +195,7 @@ JSONDocument& SEXP2JSON2( SEXP sexp, JSONDocument &jresult, bool compress_array,
 						if( !err ){
 
                             JSONDocument jsonelt;
-                            SEXP2JSON2( elt, jsonelt, true, envir_list );
+                            SEXP2JSON( elt, jsonelt, true, envir_list );
 							jresult.add( strname.c_str(), jsonelt );
 							
 						}
@@ -224,21 +224,21 @@ JSONDocument& SEXP2JSON2( SEXP sexp, JSONDocument &jresult, bool compress_array,
 		SEXP dimnames = getAttrib(sexp, R_DimNamesSymbol);
 		if( dimnames && TYPEOF(dimnames) != 0 ){
             JSONDocument jdimnames;
-            jresult.add( "$dimnames", SEXP2JSON2( dimnames, jdimnames, true, envir_list ));
+            jresult.add( "$dimnames", SEXP2JSON( dimnames, jdimnames, true, envir_list ));
 			attrs = true;
 		}
 		
 		SEXP rnames = getAttrib(sexp, R_NamesSymbol);
         JSONDocument jnames;
 		if( rnames && TYPEOF(rnames) != 0 ){
-			SEXP2JSON2( rnames, jnames, false, envir_list );
+			SEXP2JSON( rnames, jnames, false, envir_list );
 			names = true;
 		}
 
 		SEXP rrownames = getAttrib(sexp, R_RowNamesSymbol);
 		if( rrownames && TYPEOF(rrownames) != 0 ){
 			JSONDocument jrownames;
-            SEXP2JSON2( rrownames, jrownames, false, envir_list );
+            SEXP2JSON( rrownames, jrownames, false, envir_list );
 			attrs = true;
 			jresult.add( "$rownames", jrownames );
 		}
@@ -291,7 +291,7 @@ JSONDocument& SEXP2JSON2( SEXP sexp, JSONDocument &jresult, bool compress_array,
 			SEXP levels = Rf_getAttrib(sexp, R_LevelsSymbol);
 			jresult.add( "$type", "factor" );
 			JSONDocument jlevels;
-            jresult.add( "$levels", SEXP2JSON2(levels, jlevels, true, envir_list));
+            jresult.add( "$levels", SEXP2JSON(levels, jlevels, true, envir_list));
 			attrs = true;
 			for( int i = 0; i< len; i++ ){ vector.push( (INTEGER(sexp))[i] ); }
 		}
@@ -332,7 +332,7 @@ JSONDocument& SEXP2JSON2( SEXP sexp, JSONDocument &jresult, bool compress_array,
 			
 			for( int i = 0; i< len; i++ ){
 				JSONDocument elt;
-				vector.push( SEXP2JSON2( VECTOR_ELT(sexp, i), elt, true, envir_list ));
+				vector.push( SEXP2JSON( VECTOR_ELT(sexp, i), elt, true, envir_list ));
 			}
 		}
 		else {
@@ -420,7 +420,7 @@ JSONDocument& SEXP2JSON2( SEXP sexp, JSONDocument &jresult, bool compress_array,
 			SEXP sClass = getAttrib( sexp, R_ClassSymbol );
 			if( sClass && !Rf_isNull( sClass )){
 				JSONDocument jClass;
-				jresult.add( "$class", SEXP2JSON2( sClass, jClass, true ));
+				jresult.add( "$class", SEXP2JSON( sClass, jClass, true ));
 			}
 		}
 				
@@ -429,18 +429,18 @@ JSONDocument& SEXP2JSON2( SEXP sexp, JSONDocument &jresult, bool compress_array,
 	return jresult;
 }
 
-JSONDocument& get_srcref2( JSONDocument &srcref ){
-	SEXP2JSON2( R_Srcref, srcref );
+JSONDocument& get_srcref( JSONDocument &srcref ){
+	SEXP2JSON( R_Srcref, srcref );
 	return srcref;
 }
 
-JSONDocument& exec_to_json2( JSONDocument &result, 
+JSONDocument& exec_to_json( JSONDocument &result, 
 	std::vector< std::string > &vec, int *err, PARSE_STATUS_2 *ps2, bool withVisible ){
 
 	ParseStatus ps;
 	SEXP sexp = PROTECT( exec_r( vec, err, &ps, withVisible ));	
 	if( ps2 ) *ps2 = (PARSE_STATUS_2)ps;
-	SEXP2JSON2( sexp, result );
+	SEXP2JSON( sexp, result );
 	UNPROTECT(1);
 
 	return result;
@@ -452,17 +452,17 @@ void direct_callback_json( const char *channel, const char *json, bool buffer ){
 
 void direct_callback_sexp( const char *channel, SEXP sexp, bool buffer ){
     JSONDocument doc;
-	SEXP2JSON2( sexp, doc );
+	SEXP2JSON( sexp, doc );
 	direct_callback( channel, doc.toString().c_str(), buffer);
 }
 
 SEXP direct_callback_sync( SEXP sexp, bool buffer ){
 
     JSONDocument j;
-    SEXP2JSON2( sexp, j );
+    SEXP2JSON( sexp, j );
 
 	JSONDocument response;
-    sync_callback2( response, j.toString().c_str(), buffer );
+    sync_callback( response, j.toString().c_str(), buffer );
 	
     // FIXME: handle more, complex types? would require a JSON2SEXP method
 

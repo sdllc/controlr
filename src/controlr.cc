@@ -139,7 +139,7 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
     tmp.add( "continuation", is_continuation );
 
     JSONDocument srcref;
-    tmp.add( "srcref", get_srcref2( srcref ));
+    tmp.add( "srcref", get_srcref( srcref ));
 
     response->add( "data", tmp );
 	push_response( response );
@@ -260,7 +260,7 @@ int input_stream_read( const char *prompt, char *buf, int len, int addtohistory,
                             else if( commands.is_string()) strvec.push_back(commands);
 
                             JSONDocument rslt;
-                            response->add( "response", exec_to_json2( rslt, strvec, &err, &ps, false ));
+                            response->add( "response", exec_to_json( rslt, strvec, &err, &ps, false ));
 
 
 						}
@@ -311,7 +311,7 @@ void direct_callback( const char *channel, const char *data, bool buffered ){
  *
  * refactor: pass in result object (out)
  */
-JSONDocument& sync_callback2( JSONDocument &result, const char *data, bool buffered ){
+JSONDocument& sync_callback( JSONDocument &result, const char *data, bool buffered ){
 
 	direct_callback( "sync-request", data, buffered );
 	deallocate_on_deref < JSONDocument* > commands;
