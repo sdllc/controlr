@@ -147,7 +147,7 @@ JSONDocument& SEXP2JSON( SEXP sexp, JSONDocument &jresult, bool compress_array, 
 
 	// check null (and exit early)
 	if (!sexp){
-		// jresult = nullptr;
+        jresult.set_null();
 		return jresult;
 	}
 
@@ -251,7 +251,8 @@ JSONDocument& SEXP2JSON( SEXP sexp, JSONDocument &jresult, bool compress_array, 
 		}
 
         // the rest get stuffed into an array (at least initially)
-        JSONArray vector(len);
+        JSONDocument vector;
+        vector.set_array(len);
 
 		if( Rf_isNull(sexp)){
 			JSONDocument j;

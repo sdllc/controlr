@@ -20,11 +20,9 @@
 
 // fwd
 class JSONDocument;
-class JSONArray;
 
 class JSONValue {
     friend class JSONDocument;
-    friend class JSONArray;
 
 public:
     JSONValue() : p(0) {}
@@ -54,6 +52,7 @@ public:
 
     // special
     void set_null();
+    void set_object();
 
     // get member by name
     JSONValue operator [](const char *key);
@@ -62,48 +61,40 @@ public:
     size_t length();
     JSONValue operator [](size_t index);
 
+    // steal rhs' value using RJ move semantics.
+    void take( JSONValue &v );
+
 protected:
     void *p;
 
 };
 
-/* document root type, as array */
-class JSONArray : public JSONValue {
+/* document root type */
+class JSONDocument : public JSONValue {
 public:
-    JSONArray( int alloc = 0 );
-    ~JSONArray();
+    JSONDocument( const char *json = 0 );
+    ~JSONDocument();
 
 public:
 
-    // no indexed setters in RJ?
+    void set_array( int alloc = 0 );
+
+    // object methods (require allocator)
+    void add( const char *key, const char *value );
+    void add( const char *key, bool value );
+    void add( const char *key, int value );
+    void add( const char *key, double value );
+
+    JSONValue add( const char *key );
+    void add( const char *key, JSONValue &obj );
+
+    // array methods (require allocator)
     void push( bool val );
     void push( int val );
     void push( double val );
     void push( std::string &val );    
     void push( JSONValue &val );
     void push( JSONDocument &val );
-   
-};
-
-/* document root type, as object */
-class JSONDocument : public JSONValue {
-public:
-
-    JSONDocument( const char *json = 0 );
-    ~JSONDocument();
-
-    void add( const char *key, const char *value );
-    void add( const char *key, bool value );
-    void add( const char *key, int value );
-    void add( const char *key, double value );
-
-    void clear();
-
-    JSONValue add( const char *key );
-    void add( const char *key, JSONValue &obj );
-
-    // steal rhs' value using RJ move semantics.
-    void take( JSONValue &v );
 
 public:
     void parse( const char *json );

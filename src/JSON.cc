@@ -11,15 +11,13 @@ using namespace rapidjson;
 using namespace std;
 
 JSONDocument::JSONDocument( const char *json ){
-    //cout << "JSONDocument()" << endl;
     Document *d = new Document();
     if( json ) d->Parse( json );
-    else d->SetObject();
+    else d->SetNull();
     this->p = (void*)d;
 }
 
 JSONDocument:: ~JSONDocument(){
-    //cout << "~JSONDocument()" << endl;
     if( this->p ){
         Value *v = (Value*)p;
         delete v;
@@ -34,6 +32,7 @@ void JSONDocument::parse( const char *json ){
 
 void JSONDocument::add( const char *key, const char *value ){
     Document *d = (Document*)p;
+    if( !d->IsObject()) d->SetObject();
     Value str( value, d->GetAllocator());
     Value skey( key, d->GetAllocator());
     d->AddMember( skey, str, d->GetAllocator());
@@ -41,18 +40,21 @@ void JSONDocument::add( const char *key, const char *value ){
 
 void JSONDocument::add( const char *key, bool value ){
     Document *d = (Document*)p;
+    if( !d->IsObject()) d->SetObject();
     Value skey( key, d->GetAllocator());
     d->AddMember( skey, value, d->GetAllocator());
 }
 
 void JSONDocument::add( const char *key, int value ){
     Document *d = (Document*)p;
+    if( !d->IsObject()) d->SetObject();
     Value skey( key, d->GetAllocator());
     d->AddMember( skey, value, d->GetAllocator());
 }
 
 void JSONDocument::add( const char *key, double value ){
     Document *d = (Document*)p;
+    if( !d->IsObject()) d->SetObject();
     Value skey( key, d->GetAllocator());
     d->AddMember( skey, value, d->GetAllocator());
 }
@@ -64,6 +66,16 @@ std::string JSONValue::toString(){
     val->Accept(writer);
     std::string str = buffer.GetString();
     return str;
+}
+
+void JSONDocument::set_array( int alloc ){
+    Document *d = (Document*)p;
+    ((Value*)p)->SetArray();
+    if( alloc ) d->Reserve( alloc, d->GetAllocator());
+}
+
+void JSONValue::set_object(){
+    ((Value*)p)->SetObject();
 }
 
 void JSONValue::set_null(){
@@ -137,6 +149,7 @@ JSONValue JSONValue :: operator [](size_t index){
 
 void JSONDocument::add( const char *key, JSONValue &obj ){
     Document *d = (Document*)p;
+    if( !d->IsObject()) d->SetObject();
     Value *json = (Value*)(obj.p);
     Value skey( key, d->GetAllocator());
     d->AddMember( skey, *json, d->GetAllocator());
@@ -144,6 +157,7 @@ void JSONDocument::add( const char *key, JSONValue &obj ){
 
 JSONValue JSONDocument::add( const char *key ){
     Document *d = (Document*)p;
+    if( !d->IsObject()) d->SetObject();
     Value obj;
     obj.SetObject();
     Value skey( key, d->GetAllocator());
@@ -153,68 +167,46 @@ JSONValue JSONDocument::add( const char *key ){
     return jv;    
 }
 
-void JSONDocument::clear(){
-    Document *d = (Document*)p;
-    d->Clear();
-}
-
-// -----------------------------------
-
-JSONArray::JSONArray( int alloc ){
-    Document *d = new Document();
-    d->SetArray();
-    if( alloc ) d->Reserve( alloc, d->GetAllocator());
-    this->p = (void*)d;
-}
-
-JSONArray::~JSONArray(){
-    if( this->p ){
-        Value *v = (Value*)p;
-        delete v;
-    }
-    this->p = 0;
-}
-
-void JSONArray::push( bool val ){
+void JSONDocument::push( bool val ){
     Document *d = (Document*)p;
     Value *v = (Value*)p;
     v->PushBack( val, d->GetAllocator() );
 }
 
-void JSONArray::push( int val ){
+void JSONDocument::push( int val ){
     Document *d = (Document*)p;
     Value *v = (Value*)p;
     v->PushBack( val, d->GetAllocator() );
 }
 
-void JSONArray::push( double val ){
+void JSONDocument::push( double val ){
     Document *d = (Document*)p;
     Value *v = (Value*)p;
     v->PushBack( val, d->GetAllocator() );
 }
 
-void JSONArray::push( JSONValue &val ){
+void JSONDocument::push( JSONValue &val ){
     Document *d = (Document*)p;
     Value *v = (Value*)p;
     Value *target = (Value*)(val.p);
     v->PushBack( *target, d->GetAllocator());   
 }
 
-void JSONArray::push( JSONDocument &val ){
+void JSONDocument::push( JSONDocument &val ){
     Document *d = (Document*)p;
     Value *v = (Value*)p;
     Value *target = (Value*)(val.p);
     v->PushBack( *target, d->GetAllocator());   
 }
 
-void JSONArray::push( std::string &val ){
+void JSONDocument::push( std::string &val ){
     Document *d = (Document*)p;
     Value *v = (Value*)p;
     Value str( val.c_str(), d->GetAllocator());
     v->PushBack( str, d->GetAllocator() );
 } 
 
-void JSONDocument::take( JSONValue &v ){
+void JSONValue::take( JSONValue &v ){
     Value *me = (Value*)p;
     Value *you = (Value*)v.p;
 
