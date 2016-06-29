@@ -154,9 +154,12 @@ JSONDocument& SEXP2JSON( SEXP sexp, JSONDocument &jresult, bool compress_array, 
 	int len = Rf_length(sexp);
 	int rtype = TYPEOF(sexp);
 	
-	// cout << "len " << len << ", type " << rtype << endl;
+    // cout << "len " << len << ", type " << rtype << endl;
 
-	if( len == 0 ) return jresult;
+	if( len == 0 ){
+        jresult.set_null();
+        return jresult;
+    }
 
 	// environment
 	else if( Rf_isEnvironment( sexp )){
@@ -277,7 +280,12 @@ JSONDocument& SEXP2JSON( SEXP sexp, JSONDocument &jresult, bool compress_array, 
 
 			for( int i = 0; i< len; i++ ){
 				int lgl = (INTEGER(sexp))[i];
-				if (lgl == NA_LOGICAL) vector.push( false ); // FIXME: ?? // vector.push_back( nullptr );
+				if (lgl == NA_LOGICAL){
+                    // vector.push( false ); // FIXME: ?? // vector.push_back( nullptr );
+                    JSONValue nv;
+                    nv.set_null();
+                    vector.push( nv );
+                }
 				else vector.push( lgl ? true : false );
 			}
 			
@@ -314,21 +322,14 @@ JSONDocument& SEXP2JSON( SEXP sexp, JSONDocument &jresult, bool compress_array, 
 		else if (isString(sexp))
 		{
 			for( int i = 0; i< len; i++ ){
-				/*
-				const char *tmp = translateChar(STRING_ELT(sexp, i));
-				if (tmp[0]) vector.push_back(tmp);
-				else vector.push_back( "" );
-				*/
 				
-				// FIXME: need to unify this in some fashion (what?)
+				// FIXME: need to unify this in some fashion | <-- huh?
 				
 				SEXP strsxp = STRING_ELT( sexp, i );
 				const char *tmp = translateChar(STRING_ELT(sexp, i));
-				if( tmp[0] ){
-					std::string str = CHAR(Rf_asChar(strsxp));
-					vector.push(str);
-				}
-				else vector.push( "" );
+                std::string str = "";
+				if( tmp[0] ) str = CHAR(Rf_asChar(strsxp));
+				vector.push(str);
 				
 			}
 		}
