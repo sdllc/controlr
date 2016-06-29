@@ -81,7 +81,7 @@ void direct_callback( const char *channel, const char *data, bool buffer );
  *
  */
 // nlohmann::json sync_callback( const char *data, bool buffer );
-JSONDocument* sync_callback2( const char *data, bool buffer );
+JSONDocument& sync_callback2( JSONDocument &result, const char *data, bool buffer );
 
 /**
  * console output handler

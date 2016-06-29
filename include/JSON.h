@@ -42,6 +42,7 @@ public:
     bool is_string();
     bool is_number();
     bool is_bool();
+    bool is_null();
 
     // has key?
     bool has(const char *key);
@@ -50,6 +51,9 @@ public:
     operator std::string();
     operator bool();
     operator double();
+
+    // special
+    void set_null();
 
     // get member by name
     JSONValue operator [](const char *key);

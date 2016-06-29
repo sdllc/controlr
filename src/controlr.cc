@@ -308,11 +308,15 @@ void direct_callback( const char *channel, const char *data, bool buffered ){
  * sync callback.  this will send out a message with the channel
  * "sync-request"; the client MUST respond with something, even
  * a null message, for the operation to complete.
+ *
+ * refactor: pass in result object (out)
  */
-JSONDocument * sync_callback2( const char *data, bool buffered ){
+JSONDocument& sync_callback2( JSONDocument &result, const char *data, bool buffered ){
 
 	direct_callback( "sync-request", data, buffered );
 	deallocate_on_deref < JSONDocument* > commands;
+
+    result.set_null();
 
 	// FIXME: timeout?
 	
@@ -322,18 +326,17 @@ JSONDocument * sync_callback2( const char *data, bool buffered ){
 		if( commands.size()) break;
 		if( initialized ) r_tick();
 	}
-	
-	if( !commands.size()) return nullptr;
+
+	if( !commands.size()) return result;
 	JSONDocument *command = commands[0];
-	if (command->has("response")) return nullptr;	
 
-    JSONDocument *jdoc = new JSONDocument();
+	if (!command->has("response")) return result;	
+
     JSONValue src = (*command)[ "response" ];
-    jdoc->take(src);
-    return jdoc;
+    result.take(src);
 
-	// jFIXME // return command["response"];
-	// return nullptr;
+    return result;
+
 }
 
 /** 

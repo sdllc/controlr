@@ -66,6 +66,14 @@ std::string JSONValue::toString(){
     return str;
 }
 
+void JSONValue::set_null(){
+    ((Value*)p)->SetNull();
+}
+
+bool JSONValue::is_null(){
+    return ((Value*)p)->IsNull();
+}
+
 bool JSONValue::is_array(){
     return ((Value*)p)->IsArray();
 }
@@ -209,6 +217,10 @@ void JSONArray::push( std::string &val ){
 void JSONDocument::take( JSONValue &v ){
     Value *me = (Value*)p;
     Value *you = (Value*)v.p;
+
+    // rapidjson's move semantics: move data, 
+    // not copy, and set src to null (empty)
+
     (*me) = (*you); 
 }
 

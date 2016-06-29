@@ -460,23 +460,25 @@ SEXP direct_callback_sync( SEXP sexp, bool buffer ){
 
     JSONDocument j;
     SEXP2JSON2( sexp, j );
-    SEXP rslt;
 
-	JSONDocument *response = sync_callback2( j.toString().c_str(), buffer );
+	JSONDocument response;
+    sync_callback2( response, j.toString().c_str(), buffer );
 	
-	if( response->is_string()){
-		rslt = Rf_mkString( ((std::string)*response).c_str());
-	}
-	else if( response->is_number()){
-		rslt = Rf_ScalarReal(*response);
-	}
-	else if( response->is_bool()){
-		rslt = Rf_ScalarLogical((bool)response ? 1 : 0);
-	}
-    else rslt = R_NilValue;
+    // FIXME: handle more, complex types? would require a JSON2SEXP method
 
-    delete response;
+    if( response.is_string()){
+        std::string str = (std::string)(response);
+        return Rf_mkString(str.c_str());
+    }
+    
+    if( response.is_number()){
+        return Rf_ScalarReal(response);
+    }
+    
+    if( response.is_bool()){
+        return Rf_ScalarLogical((bool)response ? 1 : 0);
+    }
 
-	return rslt;
+	return R_NilValue;
 }
 
