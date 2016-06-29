@@ -34,7 +34,7 @@
 					"include_dirs" : [
 					],
 					"ldflags" : [
-						'<!@(R CMD config --ldflags)'
+						'<!@(R CMD config --ldflags)', '<!(echo $LDFLAGS)'
 					]
           	}],
 				['OS=="mac"', {
