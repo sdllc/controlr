@@ -147,8 +147,6 @@ inline char* WriteExponent(int K, char* buffer) {
     return buffer;
 }
 
-#include <stdio.h>
-
 inline char* Prettify(char* buffer, int length, int k, int maxDecimalPlaces) {
 
 	const int sig = 10;
@@ -157,10 +155,23 @@ inline char* Prettify(char* buffer, int length, int k, int maxDecimalPlaces) {
 
 		k += (length - sig);
 
+		/*		
 		// round away from zero
 
 		if( buffer[sig] >= '5' ){
 			for( int i = sig-1; i >= 0; i-- ){
+				buffer[i]++;
+				if( buffer[i] > '9' ) buffer[i] = '0';
+				else break;
+			}
+		}
+		*/
+
+		// banker's rounding 
+		// NOTE: this relies on the property that ascii '0' == 48
+
+		if( buffer[sig] >= '5' ){
+			for( int i = sig-1; i >= 0 && (buffer[i] % 2); i-- ){
 				buffer[i]++;
 				if( buffer[i] > '9' ) buffer[i] = '0';
 				else break;
@@ -171,21 +182,15 @@ inline char* Prettify(char* buffer, int length, int k, int maxDecimalPlaces) {
 
 		if( buffer[0] == '0' ){
 			buffer[0] = '1';
-			buffer[1] = 0;
 			length = 1;
-			k += (sig); // *10
+			k += (sig); // * 10
 		}
 		else {
-
-			buffer[sig] = 0;
 			length = sig;
-
-			for( int i = sig-1; i > 0 && buffer[i] == '0'; i-- ){
-				buffer[i] = 0;
-				length--;
-				k++;
-			}
+			for( int i = sig-1; i > 0 && buffer[i] == '0'; i--, length--, k++ );
 		}
+		
+		buffer[length] = 0;
 
 	}
 
