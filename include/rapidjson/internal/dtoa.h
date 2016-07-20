@@ -147,7 +147,49 @@ inline char* WriteExponent(int K, char* buffer) {
     return buffer;
 }
 
+#include <stdio.h>
+
 inline char* Prettify(char* buffer, int length, int k, int maxDecimalPlaces) {
+
+	const int sig = 10;
+
+	if( length > sig ){
+
+		k += (length - sig);
+
+		// round away from zero
+
+		if( buffer[sig] >= '5' ){
+			for( int i = sig-1; i >= 0; i-- ){
+				buffer[i]++;
+				if( buffer[i] > '9' ) buffer[i] = '0';
+				else break;
+			}
+		}
+
+		// check for special case of 999999999... rounded up
+
+		if( buffer[0] == '0' ){
+			buffer[0] = '1';
+			buffer[1] = 0;
+			length = 1;
+			k += (sig); // *10
+		}
+		else {
+
+			buffer[sig] = 0;
+			length = sig;
+
+			for( int i = sig-1; i > 0 && buffer[i] == '0'; i-- ){
+				buffer[i] = 0;
+				length--;
+				k++;
+			}
+		}
+
+	}
+
+
     const int kk = length + k;  // 10^(kk-1) <= v < 10^kk
 
     if (0 <= k && kk <= 21) {
