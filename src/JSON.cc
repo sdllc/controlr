@@ -85,6 +85,7 @@ std::string JSONValue::toString(){
     Value *val = (Value*)p;
     StringBuffer buffer;
     Writer<StringBuffer> writer(buffer);
+//    writer.SetMaxDecimalPlaces(10); // test
     val->Accept(writer);
     std::string str = buffer.GetString();
     return str;
