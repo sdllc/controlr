@@ -32,16 +32,21 @@
 using namespace rapidjson;
 using namespace std;
 
+#include <stdio.h>
+
 JSONDocument::JSONDocument( const char *json ){
+
     Document *d = new Document();
+
     if( json ) d->Parse( json );
     else d->SetNull();
     this->p = (void*)d;
 }
 
 JSONDocument:: ~JSONDocument(){
+
     if( this->p ){
-        Value *v = (Value*)p;
+        Document *d = (Document*)p;
         delete v;
     }
     this->p = 0;
