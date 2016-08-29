@@ -34,17 +34,16 @@ using namespace std;
 
 #include <stdio.h>
 
+static Document globalAllocator;
+
 JSONDocument::JSONDocument( const char *json ){
-
-    Document *d = new Document();
-
+    Document *d = new Document(kNullType, &(globalAllocator.GetAllocator()));
     if( json ) d->Parse( json );
     else d->SetNull();
     this->p = (void*)d;
 }
 
 JSONDocument:: ~JSONDocument(){
-
     if( this->p ){
         Document *d = (Document*)p;
         delete v;
