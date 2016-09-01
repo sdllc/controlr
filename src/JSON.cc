@@ -46,7 +46,7 @@ JSONDocument::JSONDocument( const char *json ){
 JSONDocument:: ~JSONDocument(){
     if( this->p ){
         Document *d = (Document*)p;
-        delete v;
+        delete d;
     }
     this->p = 0;
 }
