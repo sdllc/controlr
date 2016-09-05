@@ -85,6 +85,12 @@ var start_child_process = function( opts, args ){
 		child_process_opts.stdio = opts.redirect_stdio ? 'pipe' : 'inherit';
 	}
 	
+    /*
+    args.unshift(file);
+    args.unshift("--leak-check=yes");
+    file = "valgrind"
+    */
+
     var proc = child_process.spawn( file, args, child_process_opts );
     
     if( opts.debug ){
@@ -226,15 +232,14 @@ var ControlR = function(){
 	var debug_op_pending = false;
 
 	/** 
-	 * command queue for tolling commands while busy.  use sparingly.
+	 * command queue
 	 */
 	var command_queue = [];
 
 	/** pop the queue and exec */
 	function run_command_queue(){
 		if( !busy && command_queue.length ){
-			var cmd = command_queue.splice(0,1);
-			this[cmd[0].path]( cmd[0].command ).then( function( response ){
+      exec_packet({ command: cmd[0].path, cmds: cmd[0].command }).then( function( response ){
 				cmd[0].resolve.call( this, response );
 			}).catch(function(){
 				cmd[0].reject.apply( this, arguments );
@@ -242,13 +247,13 @@ var ControlR = function(){
 		}
 	}
 
-    // NOTE: on linux, binding a function to a string does not pass 
-    // the string by reference.  therefore if we want the buffer passed 
-    // by reference we need to wrap it in an object and bind the object.
+  // NOTE: on linux, binding a function to a string does not pass 
+  // the string by reference.  therefore if we want the buffer passed 
+  // by reference we need to wrap it in an object and bind the object.
 
-    var buffer = { data: "" };
+  var buffer = { data: "" };
 
-    var instance = this;
+  var instance = this;
 
 	/** 
 	 * buffering console messages.  this is more important on linux than 
@@ -358,63 +363,49 @@ var ControlR = function(){
 				  
         });
     };
-	
-	/**
-	 * generic exec function.  
-	 */
-	var exec_packet = function( packet ){
-		return new Promise( function( resolve, reject ){
-			if( busy ) reject( "busy" );
-            else {
-                busy = true;
-                instance.emit( 'state-change', busy );
-                notify = function( response ){
-					
-					// generally if we were buffering command output, and the 
-					// command is complete, messages should be finished.  that
-					// might not account for clogged pipes, though. [TODO: stress test]
 
-					if( interval ){
-						clearTimeout( interval );
-						flush_console(); // nulls interval
-					}
-					
-					busy = false;
-					
-                    notify = null;
-                    if( response ){
-						if( response.parsestatus === 3 ) reject(response); // parse err
-						resolve( response );
-					}
-                    else reject();
+  /**
+   * generic exec function.  
+   */
+  var exec_packet = function( packet ){
+    return new Promise( function( resolve, reject ){
+      if( busy ) reject( "busy" );
+      else {
+        busy = true;
+        instance.emit( 'state-change', busy );
+        notify = function( response ){
+      
+          // generally if we were buffering command output, and the 
+          // command is complete, messages should be finished.  that
+          // might not account for clogged pipes, though. [TODO: stress test]
 
-					setImmediate(function(){
-						instance.emit( 'state-change', busy );
-						run_command_queue.call(instance);
-					});
+          if( interval ){
+            clearTimeout( interval );
+            flush_console(); // nulls interval
+          }
+      
+          busy = false;
+          notify = null;
 
-                };
-                write_packet( socket, packet );
-            }
-        });
-    };
+          if( response ){
+            if( response.parsestatus === 3 ) reject(response); // parse err
+            else resolve( response );
+          }
+          else reject();
+
+          setImmediate(function(){
+            instance.emit( 'state-change', busy );
+            run_command_queue.call(instance);
+          });
+
+        };
+        write_packet( socket, packet );
+      }
+    });
+  };
 
 	/** get state */
 	this.busy = function(){ return busy; }
-
-    /** execute a command.  any output will print to the console */
-    this.exec = function( cmds ){
-        return exec_packet({
-           command: 'exec', commands: cmds 
-        });
-    };
-    
-    /** execute a command and return the response (via promise) */
-    this.internal = function( cmds ){
-        return exec_packet({
-           command: 'internal', commands: cmds 
-        });
-    };
 
 	/**
 	 * send break
@@ -433,7 +424,10 @@ var ControlR = function(){
 	 */
 	this.queued_command = function( cmds, path, key ){
 		
-		if( !busy ) return this[path]( cmds );
+		if( !busy ){
+      return exec_packet({ command: path, commands: cmds });
+    }
+
 		return new Promise( function( resolve, reject ){
 			if( key ){
 				var tmp = [];
@@ -448,13 +442,19 @@ var ControlR = function(){
 		
 	};
 
-	this.queued_internal = function( cmds, key ){
-		return this.queued_command( cmds, "internal", key );
-	};
+  /**
+   * execute command on the internal channel (returns result)
+   */
+  this.internal = function( cmds, key ){
+    return this.queued_command( cmds, "internal", key );
+  };
 
-	this.queued_exec = function( cmds, key ){
-		return this.queued_command( cmds, "exec", key );
-	};
+  /**
+   * execute command on the "exec" channel 
+   */
+  this.exec = function( cmds, key ){
+    return this.queued_command( cmds, "exec", key );
+  };
 	
     /** shutdown and clean up */    
     this.shutdown = function(){

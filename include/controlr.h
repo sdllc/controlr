@@ -122,6 +122,9 @@ public:
 	}
 
 	void locked_consume( std::vector < T > &target ){
+
+        // how do we know this is going to be == length 1?
+
 		this->lock();
 		target = (std::vector<T>)(*this);
 		this->clear();
