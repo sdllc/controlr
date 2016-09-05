@@ -222,12 +222,12 @@ var on_read = function( socket, buffer, callback ){
     
 var ControlR = function(){
     
-    var busy = false;
-    var opts = null;
-    var notify = null;
-    var socket_file = null; 
-    var socket = null;
-    var server = null;
+  var busy = false;
+  var opts = null;
+  var notify = null;
+  var socket_file = null; 
+  var socket = null;
+  var server = null;
 
 	var debug_op_pending = false;
 
@@ -273,27 +273,24 @@ var ControlR = function(){
 		console_buffer = "";
 	}
 
-    var read_callback = function( packet ){
+  var read_callback = function( packet ){
 
-        if( packet.type ){
-						
+    if( packet.type ){
 			switch( packet.type ){				
-			
+
 			case "response":
-                if( notify ) notify.call( this, packet );
+        if( notify ) notify.call( this, packet );
 				break;
 			
 			case "prompt":
 			
 				// signals the end of an exec.  
-				
+
 				// FIXME: split notify callbacks for exec and 
 				// internal, otherwise they'll get crossed in debug ops <-- ??
 
 				if( notify ) notify.call( this, packet );
-				else {
-					instance.emit( 'system', packet ); // send this to the renderer for possible handling
-				}
+				else instance.emit( 'system', packet ); // send this to the renderer for possible handling
 				break;
 				
 			case "console":
@@ -301,7 +298,7 @@ var ControlR = function(){
 				// unbuffered version.  we're buffering on the 
 				// child process now, should be sufficient, although
 				// we can turn this on again if necessary.
-                instance.emit( 'console', packet.message, packet.flag );
+        instance.emit( 'console', packet.message, packet.flag );
 				
 				// buffered
 				/*
@@ -353,16 +350,16 @@ var ControlR = function(){
 		else console.info( "Packet missing type", packet );
     };
 
-    var close = function(){
-        server.close( this, function(){
-         
-            // FIXME: if this is the last call in the application,
-            // is there a possibility it will exit before removing 
-            // this file?  I think not, but could perhaps verify.
-           	if( socket_file ) fs.unlink( socket_file );
-				  
-        });
-    };
+  var close = function(){
+      server.close( this, function(){
+        
+          // FIXME: if this is the last call in the application,
+          // is there a possibility it will exit before removing 
+          // this file?  I think not, but could perhaps verify.
+          if( socket_file ) fs.unlink( socket_file );
+        
+      });
+  };
 
   /**
    * generic exec function.  
@@ -456,78 +453,79 @@ var ControlR = function(){
     return this.queued_command( cmds, "exec", key );
   };
 	
-    /** shutdown and clean up */    
-    this.shutdown = function(){
-		return new Promise( function( resolve, reject ){
-			if( socket ){
-				exec_packet({ command: 'rshutdown' }).then( function(){
-					close();    
-					server = null;
-					resolve();
-				}).catch(function(e){
-					close();    
-					server = null;
-					reject(e);
-				});
-			}
-			else if( server ){
-				close();
-				server = null;
-				resolve();
-			}
-			else reject( "invalid state" );
-		});
-    };
+  /** shutdown and clean up */    
+  this.shutdown = function(){
+    return new Promise( function( resolve, reject ){
+      if( socket ){
+        exec_packet({ command: 'rshutdown' }).then( function(){
+          close();    
+          server = null;
+          resolve();
+        }).catch(function(e){
+          close();    
+          server = null;
+          reject(e);
+        });
+      }
+      else if( server ){
+        close();
+        server = null;
+        resolve();
+      }
+      else reject( "invalid state" );
+    });
+  };
 
-    /**
-     * init the connection.  why an init method and not just init in the 
-     * constructor? (1) it's symmetric with the shutdown method, which we
-     * need to clean up, and (2) you can set up event handlers before 
-     * initializing.
-     */
+  /**
+   * init the connection.  why an init method and not just init in the 
+   * constructor? (1) it's symmetric with the shutdown method, which we
+   * need to clean up, and (2) you can set up event handlers before 
+   * initializing.
+   */
 	this.init = function(){
 
-        opts = arguments[0] || {};
-        if( opts.debug ) console.info( "controlr init", opts );
+    opts = arguments[0] || {};
+    if( opts.debug ) console.info( "controlr init", opts );
 		  
-		  return new Promise( function( resolve, reject ){
-            
-            if( server ) reject( "already initialized" );
-				var args = [];
+    return new Promise( function( resolve, reject ){
+
+      if( server ) reject( "already initialized" );
+      var args = [];
 			
-				// default to pipe, but support "tcp".  in the case of tcp, 
-				// additional options [default]:
-				// host ["127.0.0.1"]
-				// port [1440]
-				// last_port [1480]
+      // default to pipe, but support "tcp".  in the case of tcp, 
+      // additional options [default]:
+      // host ["127.0.0.1"]
+      // port [1440]
+      // last_port [1480]
 				
-				if( opts.connection_type === "tcp" ){
-					var host = opts.host || DEFAULT_TCP_HOST;
-					var start_port = DEFAULT_TCP_PORT_START;
-					var end_port = DEFAULT_TCP_PORT_END;
+      if( opts.connection_type === "tcp" ){
+
+        var host = opts.host || DEFAULT_TCP_HOST;
+        var start_port = DEFAULT_TCP_PORT_START;
+        var end_port = DEFAULT_TCP_PORT_END;
 					
-					if( opts.port ){
-						start_port = opts.port;
-						end_port = ( opts.last_port && opts.last_port > opts.port ) ? opts.last_port : opts.port;
-					}
+        if( opts.port ){
+          start_port = opts.port;
+          end_port = ( opts.last_port && opts.last_port > opts.port ) ? opts.last_port : opts.port;
+        }
 
-					check_port( start_port, host, end_port - start_port ).then(function(port){
-						args = [host, port];
-						server = net.createServer().listen( port, host, connect_callback.bind( this, opts, args, resolve, reject ));
-					}).catch( function(e){
-						reject( e );
-					});
-
-				}
-				else {
-					socket_file = create_pipe_name();
-					args = [socket_file];
-					server = net.createServer().listen( socket_file, connect_callback.bind( this, opts, args, resolve, reject ));
-				}
-				
+        check_port( start_port, host, end_port - start_port ).then(function(port){
+          args = [host, port];
+          server = net.createServer().listen( port, host, connect_callback.bind( this, opts, args, resolve, reject ));
+        }).catch( function(e){
+          reject( e );
         });
-		  
-	 };
+
+      }
+      else {
+        socket_file = create_pipe_name();
+        args = [socket_file];
+        server = net.createServer().listen( socket_file, connect_callback.bind( this, opts, args, resolve, reject ));
+      }
+				
+    });
+	  
+  };
 	 
 	 var connect_callback = function(opts, args, resolve, reject){
             
