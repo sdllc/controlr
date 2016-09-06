@@ -225,6 +225,56 @@ const on_read = function (socket, buffer, callback) {
 
 };
 
+/**
+ * turn a command object into an R string.  this is a 
+ * convenience allowing you to pass arguments as objects 
+ * without converting to strings.  
+ * 
+ * there are limitations, of course.  for now we just 
+ * support basic types and arrays; arrays will always become
+ * vectors (not lists).
+ * 
+ * update with some limited support for objects ( -> names )
+ * 
+ * obj : { "command", [arguments] }
+ */
+const unpack_arguments = function( command, args ){
+
+  console.info( "O", obj );
+
+  let unpack_ = function(o){
+    return o.map( function( arg ){
+      switch( typeof arg ){
+      case "number": 
+        return arg;
+      case "boolean":
+        return arg ? "T" : "F"; 
+      case "string":
+        return `"${arg}"`;
+      case "object":
+        if( Array.isArray( arg ))
+          return `c(${unpack_(arg)})`;
+        else {
+          return Object.keys(arg).map( function( k ){
+            return `${k}=${unpack_([arg[k]])}`;
+          }).join( "," );
+        }
+      default:
+        return "NULL";
+      };
+    }).join( "," );
+  };
+
+  let str = `${command}(`;
+  str += unpack_(args || []);
+  str += ");";
+
+  console.info( "S", str );
+
+  return str;
+
+};
+
 const ControlR = function () {
 
   let busy = false;
@@ -426,10 +476,10 @@ const ControlR = function () {
 	 * that's for things like "set console width", where we might have 
 	 * mutliple queued calls and the earlier calls are superfluous.
 	 */
-  this.queued_command = function (cmds, exec_channel, key) {
+  this.queue_or_exec = function (commands, exec_channel, key) {
 
     if (!busy) {
-      return exec_packet({ command: exec_channel, commands: cmds });
+      return exec_packet({ command: exec_channel, commands: commands });
     }
 
     return new Promise(function (resolve, reject) {
@@ -441,23 +491,32 @@ const ControlR = function () {
         })
         command_queue = tmp;
       }
-      command_queue.push({ command: cmds, key: key, exec_channel: exec_channel, resolve: resolve, reject: reject });
+      command_queue.push({ command: commands, key: key, exec_channel: exec_channel, resolve: resolve, reject: reject });
     });
 
+  };
+
+  this.do_call = function( command, args, channel ){
+    command = unpack_arguments( command, args );
+    return this.queue_or_exec( command, channel || "internal" );
   };
 
   /**
    * execute command on the internal channel (returns result)
    */
-  this.internal = function (cmds, key) {
-    return this.queued_command(cmds, "internal", key);
+  this.internal = function (commands, key) {
+    if(( typeof commands === "object" ) && !Array.isArray(commands)) 
+      commands = unpack_arguments( commands.command, commands.args );
+    return this.queue_or_exec(commands, "internal", key);
   };
 
   /**
    * execute command on the "exec" channel 
    */
-  this.exec = function (cmds, key) {
-    return this.queued_command(cmds, "exec", key);
+  this.exec = function (commands, key) {
+    if(( typeof commands === "object" ) && !Array.isArray(commands)) 
+      commands = unpack_arguments( commands.command, commands.args );
+    return this.queue_or_exec(commands, "exec", key);
   };
 
   /** shutdown and clean up */
