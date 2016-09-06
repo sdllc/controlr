@@ -242,6 +242,7 @@ const unpack_arguments = function( command, args ){
 
   // tail fn
   let unpack_ = function(o){
+    if (!Array.isArray(o)) o = [o];
     return o.map( function( arg ){
       switch( typeof arg ){
       case "number": 
