@@ -240,8 +240,7 @@ const on_read = function (socket, buffer, callback) {
  */
 const unpack_arguments = function( command, args ){
 
-  console.info( "O", obj );
-
+  // tail fn
   let unpack_ = function(o){
     return o.map( function( arg ){
       switch( typeof arg ){
@@ -260,6 +259,7 @@ const unpack_arguments = function( command, args ){
           }).join( "," );
         }
       default:
+        // FIXME: should warn the caller, perhaps throw?
         return "NULL";
       };
     }).join( "," );
@@ -268,8 +268,6 @@ const unpack_arguments = function( command, args ){
   let str = `${command}(`;
   str += unpack_(args || []);
   str += ");";
-
-  console.info( "S", str );
 
   return str;
 
