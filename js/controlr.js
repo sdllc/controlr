@@ -294,7 +294,7 @@ const ControlR = function () {
   let run_command_queue = function () {
     if (!busy && command_queue.length) {
       let packet = command_queue.shift();
-      exec_packet({ command: packet.exec_channel, cmds: packet.command }).then(function (response) {
+      exec_packet({ command: packet.exec_channel, commands: packet.command }).then(function (response) {
         packet.resolve.call(this, response);
       }).catch(function () {
         packet.reject.apply(this, arguments);
@@ -420,6 +420,7 @@ const ControlR = function () {
    * generic exec function.  
    */
   let exec_packet = function (packet) {
+
     return new Promise(function (resolve, reject) {
       if (busy) reject("busy");
       else {
@@ -504,8 +505,6 @@ const ControlR = function () {
    * execute command on the internal channel (returns result)
    */
   this.internal = function (commands, key) {
-    if(( typeof commands === "object" ) && !Array.isArray(commands)) 
-      commands = unpack_arguments( commands.command, commands.args );
     return this.queue_or_exec(commands, "internal", key);
   };
 
@@ -513,8 +512,6 @@ const ControlR = function () {
    * execute command on the "exec" channel 
    */
   this.exec = function (commands, key) {
-    if(( typeof commands === "object" ) && !Array.isArray(commands)) 
-      commands = unpack_arguments( commands.command, commands.args );
     return this.queue_or_exec(commands, "exec", key);
   };
 
