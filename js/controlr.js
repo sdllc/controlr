@@ -666,9 +666,7 @@ const ControlR = function () {
 };
 
 // inherits from event emitter
-for (let x in events.EventEmitter.prototype) {
-  ControlR.prototype[x] = events.EventEmitter.prototype[x];
-}
+Object.assign( ControlR.prototype, events.EventEmitter.prototype );
 
 module.exports = ControlR;
 
