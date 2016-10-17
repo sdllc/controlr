@@ -406,12 +406,15 @@ const ControlR = function () {
   };
 
   let close = function () {
-    server.close(this, function () {
+    server.close( function () {
 
       // FIXME: if this is the last call in the application,
       // is there a possibility it will exit before removing 
       // this file?  I think not, but could perhaps verify.
-      if (socket_file) fs.unlink(socket_file);
+
+      // don't delete pipe files on windows -- they are not actual files
+      
+      if (socket_file && process.platform !== "win32" ) fs.unlink(socket_file);
 
     });
   };
