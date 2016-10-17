@@ -415,6 +415,7 @@ const ControlR = function () {
       // don't delete pipe files on windows -- they are not actual files
       
       if (socket_file && process.platform !== "win32" ) fs.unlink(socket_file);
+      socket_file = null;
 
     });
   };
